@@ -18,7 +18,7 @@ st.set_page_config(
     page_title="NASDAQ Magnificent 7 Tracker",
     page_icon="📈",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed"  # Colapsado por defecto (mejor para móviles)
 )
 
 # Colores para incrementos y decrementos
@@ -29,7 +29,7 @@ COLORS = {
     "down_light": "#FFCDD2" # Rojo claro
 }
 
-# CSS personalizado para un diseño moderno con colores pastel
+# CSS personalizado para un diseño moderno con colores pastel - RESPONSIVE
 st.markdown("""
 <style>
     /* Fuentes personalizadas */
@@ -113,56 +113,36 @@ st.markdown("""
     /* Reducir espaciado general */
     .block-container {
         padding-top: 1rem !important;
+        padding-left: 1rem !important;
+        padding-right: 1rem !important;
     }
     
-    /* Sidebar - SIEMPRE visible */
+    /* Sidebar - Desktop */
     [data-testid="stSidebar"] {
         background: linear-gradient(180deg, #FFFFFF 0%, #FDF6F0 100%) !important;
         border-right: 1px solid #ECEFF1;
-        min-width: 300px !important;
-        width: 300px !important;
-        display: block !important;
-        visibility: visible !important;
-        opacity: 1 !important;
-        transform: translateX(0) !important;
-        left: 0 !important;
     }
     
     [data-testid="stSidebar"] .stMarkdown {
         color: var(--text-secondary);
     }
     
-    /* Forzar sidebar expandido */
-    [data-testid="stSidebar"] > div {
-        display: block !important;
-        visibility: visible !important;
-    }
-    
-    /* Botón de colapsar sidebar - oculto para evitar que lo cierren */
-    [data-testid="stSidebarCollapseButton"],
-    [data-testid="collapsedControl"] {
-        display: none !important;
-    }
-    
-    /* Contenido principal con margen para el sidebar */
-    .main .block-container {
-        margin-left: 0 !important;
-    }
-    
     /* Tabs */
     .stTabs [data-baseweb="tab-list"] {
-        gap: 10px;
+        gap: 8px;
         background: transparent;
+        flex-wrap: wrap;
     }
     
     .stTabs [data-baseweb="tab"] {
         background: white;
-        border-radius: 14px;
+        border-radius: 12px;
         border: 2px solid #ECEFF1;
         color: var(--text-secondary);
-        padding: 12px 28px;
+        padding: 10px 20px;
         font-weight: 600;
         transition: all 0.3s ease;
+        font-size: 0.9rem;
     }
     
     .stTabs [data-baseweb="tab"]:hover {
@@ -182,16 +162,17 @@ st.markdown("""
         background: linear-gradient(135deg, #B39DDB 0%, #90CAF9 100%);
         color: white;
         border: none;
-        border-radius: 14px;
+        border-radius: 12px;
         font-family: 'Nunito', sans-serif;
         font-weight: 700;
-        padding: 0.7rem 2rem;
+        padding: 0.6rem 1.5rem;
         transition: all 0.3s ease;
         box-shadow: 0 4px 15px rgba(179, 157, 219, 0.35);
+        width: 100%;
     }
     
     .stButton > button:hover {
-        transform: translateY(-3px);
+        transform: translateY(-2px);
         box-shadow: 0 8px 25px rgba(179, 157, 219, 0.5);
     }
     
@@ -199,7 +180,7 @@ st.markdown("""
     .stNumberInput input, .stTextInput input, .stSelectbox > div > div {
         background: white !important;
         border: 2px solid #ECEFF1 !important;
-        border-radius: 12px !important;
+        border-radius: 10px !important;
         color: var(--text-primary) !important;
         font-family: 'IBM Plex Mono', monospace !important;
     }
@@ -211,7 +192,7 @@ st.markdown("""
     
     /* DataFrames */
     .stDataFrame {
-        border-radius: 16px;
+        border-radius: 12px;
         overflow: hidden;
         box-shadow: var(--shadow);
         border: 1px solid #ECEFF1;
@@ -220,21 +201,23 @@ st.markdown("""
     /* Alertas personalizadas - Verde para subidas */
     .alert-up {
         background: linear-gradient(90deg, #E8F5E9 0%, rgba(232, 245, 233, 0.4) 100%);
-        border-left: 5px solid #4CAF50;
-        padding: 1rem 1.5rem;
-        border-radius: 0 14px 14px 0;
-        margin: 0.6rem 0;
+        border-left: 4px solid #4CAF50;
+        padding: 0.8rem 1rem;
+        border-radius: 0 12px 12px 0;
+        margin: 0.5rem 0;
         color: var(--text-primary);
+        font-size: 0.9rem;
     }
     
     /* Alertas personalizadas - Rojo para bajadas */
     .alert-down {
         background: linear-gradient(90deg, #FFEBEE 0%, rgba(255, 235, 238, 0.4) 100%);
-        border-left: 5px solid #E53935;
-        padding: 1rem 1.5rem;
-        border-radius: 0 14px 14px 0;
-        margin: 0.6rem 0;
+        border-left: 4px solid #E53935;
+        padding: 0.8rem 1rem;
+        border-radius: 0 12px 12px 0;
+        margin: 0.5rem 0;
         color: var(--text-primary);
+        font-size: 0.9rem;
     }
     
     /* Header principal compacto */
@@ -247,8 +230,8 @@ st.markdown("""
     .stock-card {
         background: white;
         border: 2px solid #ECEFF1;
-        border-radius: 20px;
-        padding: 1.5rem;
+        border-radius: 16px;
+        padding: 1rem;
         margin: 0.5rem 0;
         transition: all 0.3s ease;
         box-shadow: var(--shadow);
@@ -256,8 +239,8 @@ st.markdown("""
     
     .stock-card:hover {
         border-color: #B39DDB;
-        transform: translateY(-5px);
-        box-shadow: 0 15px 40px rgba(179, 157, 219, 0.2);
+        transform: translateY(-3px);
+        box-shadow: 0 10px 30px rgba(179, 157, 219, 0.2);
     }
     
     /* Colores de incremento/decremento */
@@ -274,14 +257,14 @@ st.markdown("""
     /* Expanders */
     .streamlit-expanderHeader {
         background: white;
-        border-radius: 14px;
+        border-radius: 12px;
         border: 2px solid #ECEFF1;
         font-weight: 600;
     }
     
     /* Info boxes */
     .stAlert {
-        border-radius: 14px;
+        border-radius: 12px;
         border: none;
     }
     
@@ -294,6 +277,215 @@ st.markdown("""
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
+    
+    /* ============================================
+       RESPONSIVE - MOBILE STYLES (< 768px)
+       ============================================ */
+    @media (max-width: 768px) {
+        /* Contenedor principal más compacto */
+        .block-container {
+            padding-top: 0.5rem !important;
+            padding-left: 0.5rem !important;
+            padding-right: 0.5rem !important;
+            max-width: 100% !important;
+        }
+        
+        /* Header más pequeño */
+        h1 {
+            font-size: 1.3rem !important;
+        }
+        
+        h2, h3 {
+            font-size: 1.1rem !important;
+        }
+        
+        /* Métricas más compactas en móvil */
+        [data-testid="stMetricValue"] {
+            font-size: 1.1rem !important;
+        }
+        
+        [data-testid="stMetricLabel"] {
+            font-size: 0.75rem !important;
+        }
+        
+        [data-testid="stMetricDelta"] {
+            font-size: 0.8rem !important;
+        }
+        
+        [data-testid="stMetric"] {
+            padding: 0.4rem;
+            border-radius: 10px;
+        }
+        
+        /* Columnas horizontales en móvil - Grid de 2x4 o scroll horizontal */
+        [data-testid="stHorizontalBlock"] {
+            flex-wrap: wrap !important;
+            gap: 0.3rem !important;
+        }
+        
+        [data-testid="stHorizontalBlock"] > [data-testid="stVerticalBlock"] {
+            flex: 0 0 calc(50% - 0.2rem) !important;
+            min-width: calc(50% - 0.2rem) !important;
+        }
+        
+        /* Tabs compactas en móvil */
+        .stTabs [data-baseweb="tab-list"] {
+            gap: 4px;
+            justify-content: center;
+        }
+        
+        .stTabs [data-baseweb="tab"] {
+            padding: 8px 12px;
+            font-size: 0.75rem;
+            border-radius: 10px;
+            flex: 1;
+            min-width: 0;
+            text-align: center;
+        }
+        
+        /* Botones más pequeños */
+        .stButton > button {
+            padding: 0.5rem 1rem;
+            font-size: 0.85rem;
+            border-radius: 10px;
+        }
+        
+        /* Alertas más compactas */
+        .alert-up, .alert-down {
+            padding: 0.6rem 0.8rem;
+            font-size: 0.8rem;
+            border-radius: 0 10px 10px 0;
+            margin: 0.4rem 0;
+        }
+        
+        /* Stock cards más pequeñas */
+        .stock-card {
+            padding: 0.8rem;
+            border-radius: 12px;
+            margin: 0.3rem 0;
+        }
+        
+        /* DataFrames con scroll horizontal */
+        .stDataFrame {
+            overflow-x: auto !important;
+            -webkit-overflow-scrolling: touch;
+        }
+        
+        /* Gráficos responsive */
+        [data-testid="stPlotlyChart"] {
+            width: 100% !important;
+        }
+        
+        /* Selectbox y inputs más grandes para touch */
+        .stSelectbox > div > div,
+        .stNumberInput input,
+        .stTextInput input {
+            min-height: 44px !important;
+            font-size: 16px !important; /* Evita zoom en iOS */
+        }
+        
+        /* Sidebar overlay en móvil */
+        [data-testid="stSidebar"] {
+            min-width: 85vw !important;
+            width: 85vw !important;
+        }
+        
+        [data-testid="stSidebar"] > div {
+            padding: 1rem 0.8rem !important;
+        }
+        
+        /* Expanders más compactos */
+        .streamlit-expanderHeader {
+            font-size: 0.85rem;
+            padding: 0.5rem;
+        }
+        
+        /* Leyenda de colores más compacta */
+        .color-legend {
+            font-size: 0.75rem !important;
+        }
+    }
+    
+    /* ============================================
+       EXTRA SMALL SCREENS (< 480px)
+       ============================================ */
+    @media (max-width: 480px) {
+        h1 {
+            font-size: 1.1rem !important;
+        }
+        
+        /* Métricas en columna única si es muy pequeño */
+        [data-testid="stHorizontalBlock"] > [data-testid="stVerticalBlock"] {
+            flex: 0 0 calc(50% - 0.15rem) !important;
+            min-width: calc(50% - 0.15rem) !important;
+        }
+        
+        [data-testid="stMetricValue"] {
+            font-size: 1rem !important;
+        }
+        
+        [data-testid="stMetricLabel"] {
+            font-size: 0.7rem !important;
+        }
+        
+        .stTabs [data-baseweb="tab"] {
+            padding: 6px 8px;
+            font-size: 0.7rem;
+        }
+        
+        .alert-up, .alert-down {
+            padding: 0.5rem 0.6rem;
+            font-size: 0.75rem;
+        }
+    }
+    
+    /* ============================================
+       TABLET STYLES (768px - 1024px)
+       ============================================ */
+    @media (min-width: 769px) and (max-width: 1024px) {
+        .block-container {
+            padding-left: 1rem !important;
+            padding-right: 1rem !important;
+        }
+        
+        [data-testid="stMetricValue"] {
+            font-size: 1.3rem !important;
+        }
+        
+        .stTabs [data-baseweb="tab"] {
+            padding: 10px 16px;
+            font-size: 0.85rem;
+        }
+    }
+    
+    /* ============================================
+       DESKTOP (> 1024px)
+       ============================================ */
+    @media (min-width: 1025px) {
+        [data-testid="stSidebar"] {
+            min-width: 280px !important;
+            width: 280px !important;
+        }
+    }
+    
+    /* Touch-friendly improvements */
+    @media (hover: none) and (pointer: coarse) {
+        /* Disable hover effects on touch devices */
+        .stock-card:hover {
+            transform: none;
+        }
+        
+        .stButton > button:hover {
+            transform: none;
+        }
+        
+        /* Larger touch targets */
+        .stSelectbox,
+        .stNumberInput,
+        .stTextInput {
+            min-height: 48px;
+        }
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -310,6 +502,20 @@ MAGNIFICENT_SEVEN = {
 
 PORTFOLIO_FILE = "portfolio.json"
 ALERTS_FILE = "alerts.json"
+
+
+def symbol_short_name(symbol):
+    """Obtener nombre corto para el símbolo (útil en móviles)"""
+    short_names = {
+        "GOOGL": "Google",
+        "AMZN": "Amazon",
+        "AAPL": "Apple",
+        "META": "Meta",
+        "MSFT": "Microsoft",
+        "NVDA": "NVIDIA",
+        "TSLA": "Tesla"
+    }
+    return short_names.get(symbol, symbol)
 
 
 def load_portfolio():
@@ -416,7 +622,7 @@ def create_price_chart(data, symbols, title="Evolución de Precios"):
             ))
     
     fig.update_layout(
-        title=dict(text=title, font=dict(size=20, color='#37474F', family='Nunito')),
+        title=dict(text=title, font=dict(size=16, color='#37474F', family='Nunito')),
         template='plotly_white',
         paper_bgcolor='rgba(255,255,255,0)',
         plot_bgcolor='rgba(253,246,240,0.5)',
@@ -425,24 +631,26 @@ def create_price_chart(data, symbols, title="Evolución de Precios"):
             orientation="h",
             yanchor="bottom",
             y=1.02,
-            xanchor="right",
-            x=1,
-            font=dict(color='#37474F', size=11, family='Nunito')
+            xanchor="center",
+            x=0.5,
+            font=dict(color='#37474F', size=9, family='Nunito'),
+            itemwidth=30
         ),
         xaxis=dict(
             showgrid=True,
             gridwidth=1,
             gridcolor='rgba(0,0,0,0.06)',
-            tickfont=dict(color='#78909C', family='Nunito')
+            tickfont=dict(color='#78909C', family='Nunito', size=10)
         ),
         yaxis=dict(
             showgrid=True,
             gridwidth=1,
             gridcolor='rgba(0,0,0,0.06)',
-            tickfont=dict(color='#78909C', family='Nunito'),
+            tickfont=dict(color='#78909C', family='Nunito', size=10),
             tickprefix="$"
         ),
-        margin=dict(l=20, r=20, t=60, b=20)
+        margin=dict(l=10, r=10, t=50, b=10),
+        autosize=True
     )
     
     return fig
@@ -482,7 +690,7 @@ def create_comparison_chart(data, symbols):
             ))
     
     fig.update_layout(
-        title=dict(text="📊 Comparativa de Rendimiento (%)", font=dict(size=20, color='#37474F', family='Nunito')),
+        title=dict(text="📊 Comparativa (%)", font=dict(size=16, color='#37474F', family='Nunito')),
         template='plotly_white',
         paper_bgcolor='rgba(255,255,255,0)',
         plot_bgcolor='rgba(253,246,240,0.5)',
@@ -491,27 +699,29 @@ def create_comparison_chart(data, symbols):
             orientation="h",
             yanchor="bottom",
             y=1.02,
-            xanchor="right",
-            x=1,
-            font=dict(color='#37474F', size=10, family='Nunito')
+            xanchor="center",
+            x=0.5,
+            font=dict(color='#37474F', size=9, family='Nunito'),
+            itemwidth=30
         ),
         xaxis=dict(
             showgrid=True,
             gridwidth=1,
             gridcolor='rgba(0,0,0,0.06)',
-            tickfont=dict(color='#78909C', family='Nunito')
+            tickfont=dict(color='#78909C', family='Nunito', size=10)
         ),
         yaxis=dict(
             showgrid=True,
             gridwidth=1,
             gridcolor='rgba(0,0,0,0.06)',
-            tickfont=dict(color='#78909C', family='Nunito'),
+            tickfont=dict(color='#78909C', family='Nunito', size=10),
             ticksuffix="%",
             zeroline=True,
             zerolinecolor='rgba(0,0,0,0.15)',
             zerolinewidth=2
         ),
-        margin=dict(l=20, r=20, t=60, b=20)
+        margin=dict(l=10, r=10, t=50, b=10),
+        autosize=True
     )
     
     return fig
@@ -543,23 +753,25 @@ def create_market_cap_chart(data, symbols):
     ])
     
     fig.update_layout(
-        title=dict(text="💰 Capitalización de Mercado (Trillones USD)", font=dict(size=20, color='#37474F', family='Nunito')),
+        title=dict(text="💰 Cap. de Mercado (T USD)", font=dict(size=16, color='#37474F', family='Nunito')),
         template='plotly_white',
         paper_bgcolor='rgba(255,255,255,0)',
         plot_bgcolor='rgba(253,246,240,0.5)',
         xaxis=dict(
-            tickfont=dict(color='#78909C', family='Nunito'),
-            showgrid=False
+            tickfont=dict(color='#78909C', family='Nunito', size=10),
+            showgrid=False,
+            tickangle=-45
         ),
         yaxis=dict(
             showgrid=True,
             gridwidth=1,
             gridcolor='rgba(0,0,0,0.06)',
-            tickfont=dict(color='#78909C', family='Nunito'),
+            tickfont=dict(color='#78909C', family='Nunito', size=10),
             tickprefix="$",
             ticksuffix="T"
         ),
-        margin=dict(l=20, r=20, t=60, b=20)
+        margin=dict(l=10, r=10, t=50, b=60),
+        autosize=True
     )
     
     return fig
@@ -604,11 +816,13 @@ def check_alerts(data, alerts_config):
 
 
 def main():
-    # Header principal compacto
+    # Header principal responsive
     st.markdown("""
-    <div style="text-align: center; padding: 0.5rem 0; margin-bottom: 0.5rem;">
-        <h1 style="font-size: 1.6rem !important; margin: 0 !important;">📈 NASDAQ Magnificent Seven</h1>
-        <p style="color: #78909C; font-size: 0.9rem; margin: 0.2rem 0 0 0;">
+    <div class="main-header-responsive" style="text-align: center; padding: 0.3rem 0; margin-bottom: 0.3rem;">
+        <h1 style="font-size: clamp(1.1rem, 4vw, 1.6rem) !important; margin: 0 !important; line-height: 1.2;">
+            📈 NASDAQ Magnificent 7
+        </h1>
+        <p style="color: #78909C; font-size: clamp(0.7rem, 2.5vw, 0.9rem); margin: 0.1rem 0 0 0;">
             Monitoreo en tiempo real
         </p>
     </div>
@@ -620,59 +834,48 @@ def main():
         
         # Selector de período
         period = st.selectbox(
-            "📅 Período de datos",
+            "📅 Período",
             options=["1d", "5d", "1mo", "3mo", "6mo", "1y", "2y", "5y"],
             index=2,
-            help="Selecciona el período de tiempo para los gráficos"
+            help="Período de tiempo para los gráficos"
         )
         
         # Selector de acciones
-        st.markdown("### 📊 Acciones a mostrar")
+        st.markdown("### 📊 Acciones")
         selected_symbols = st.multiselect(
-            "Selecciona las acciones",
+            "Selecciona acciones",
             options=list(MAGNIFICENT_SEVEN.keys()),
             default=list(MAGNIFICENT_SEVEN.keys()),
-            format_func=lambda x: f"{MAGNIFICENT_SEVEN[x]['emoji']} {MAGNIFICENT_SEVEN[x]['name']}"
+            format_func=lambda x: f"{MAGNIFICENT_SEVEN[x]['emoji']} {symbol_short_name(x)}"
         )
         
-        # Auto-refresh
-        st.markdown("### 🔄 Actualización")
-        auto_refresh = st.checkbox("Auto-actualizar (5 min)", value=False)
-        
-        if st.button("🔄 Actualizar ahora", use_container_width=True):
+        # Botón de actualizar
+        if st.button("🔄 Actualizar", use_container_width=True):
             st.cache_data.clear()
             st.rerun()
         
-        st.markdown("---")
-        
-        # Leyenda de colores por acción
-        st.markdown("### 🎨 Colores")
-        legend_html = '<div style="padding: 0.8rem; background: white; border-radius: 12px; border: 1px solid #ECEFF1;">'
-        for symbol, info in MAGNIFICENT_SEVEN.items():
+        # Leyenda de colores en expander (ahorra espacio en móvil)
+        with st.expander("🎨 Leyenda de colores", expanded=False):
+            legend_html = '<div style="padding: 0.5rem; background: white; border-radius: 10px;">'
+            for symbol, info in MAGNIFICENT_SEVEN.items():
+                legend_html += f'''
+                <div style="display: flex; align-items: center; margin-bottom: 0.3rem;">
+                    <div style="width: 12px; height: 12px; background: {info['color']}; border-radius: 3px; margin-right: 6px; flex-shrink: 0;"></div>
+                    <span style="color: #37474F; font-size: 0.8rem;">{info['emoji']} {symbol}</span>
+                </div>'''
             legend_html += f'''
-            <div style="display: flex; align-items: center; margin-bottom: 0.4rem;">
-                <div style="width: 14px; height: 14px; background: {info['color']}; border-radius: 4px; margin-right: 8px;"></div>
-                <span style="color: #37474F; font-size: 0.85rem;">{info['emoji']} {symbol}</span>
+            <div style="margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid #ECEFF1; display: flex; gap: 1rem;">
+                <span style="color: {COLORS['up']}; font-size: 0.75rem; font-weight: 600;">▲ Sube</span>
+                <span style="color: {COLORS['down']}; font-size: 0.75rem; font-weight: 600;">▼ Baja</span>
+            </div>
             </div>'''
-        legend_html += f'''
-        <div style="margin-top: 0.6rem; padding-top: 0.6rem; border-top: 1px solid #ECEFF1;">
-            <div style="display: flex; align-items: center; margin-bottom: 0.3rem;">
-                <span style="color: {COLORS['up']}; font-size: 0.85rem; font-weight: 600;">▲ Subida</span>
-            </div>
-            <div style="display: flex; align-items: center;">
-                <span style="color: {COLORS['down']}; font-size: 0.85rem; font-weight: 600;">▼ Bajada</span>
-            </div>
-        </div>
-        </div>'''
-        st.markdown(legend_html, unsafe_allow_html=True)
+            st.markdown(legend_html, unsafe_allow_html=True)
         
-        st.markdown("---")
-        st.markdown("""
-        <div style="text-align: center; color: #78909C; font-size: 0.8rem;">
-            <p>Datos de Yahoo Finance</p>
-            <p>Actualizado: {}</p>
+        st.markdown(f"""
+        <div style="text-align: center; color: #78909C; font-size: 0.75rem; margin-top: 0.5rem;">
+            <p style="margin: 0;">Yahoo Finance • {datetime.now().strftime("%H:%M")}</p>
         </div>
-        """.format(datetime.now().strftime("%H:%M:%S")), unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
     
     if not selected_symbols:
         st.warning("⚠️ Por favor, selecciona al menos una acción en el panel lateral.")
@@ -692,25 +895,30 @@ def main():
     
     # TAB 1: Dashboard
     with tab1:
-        st.markdown("### 💹 Resumen del Mercado")
+        st.markdown("### 💹 Resumen")
         
-        # Métricas principales en cards
-        cols = st.columns(len(selected_symbols))
+        # Métricas principales - Grid adaptativo (4 columnas máx, se adapta en móvil)
+        # Dividir en filas de 4 para mejor visualización en móvil
+        num_cols = min(4, len(selected_symbols))
         
-        for idx, symbol in enumerate(selected_symbols):
-            with cols[idx]:
-                if stock_data[symbol]:
-                    current = stock_data[symbol]["current_price"]
-                    prev = stock_data[symbol]["prev_close"]
-                    change = calculate_change(current, prev)
-                    
-                    st.metric(
-                        label=f"{MAGNIFICENT_SEVEN[symbol]['emoji']} {symbol}",
-                        value=f"${current:.2f}",
-                        delta=f"{change:.2f}%"
-                    )
-                else:
-                    st.metric(label=f"{MAGNIFICENT_SEVEN[symbol]['emoji']} {symbol}", value="Error")
+        for i in range(0, len(selected_symbols), num_cols):
+            row_symbols = selected_symbols[i:i + num_cols]
+            cols = st.columns(len(row_symbols))
+            
+            for idx, symbol in enumerate(row_symbols):
+                with cols[idx]:
+                    if stock_data[symbol]:
+                        current = stock_data[symbol]["current_price"]
+                        prev = stock_data[symbol]["prev_close"]
+                        change = calculate_change(current, prev)
+                        
+                        st.metric(
+                            label=f"{MAGNIFICENT_SEVEN[symbol]['emoji']} {symbol}",
+                            value=f"${current:.2f}",
+                            delta=f"{change:.2f}%"
+                        )
+                    else:
+                        st.metric(label=f"{MAGNIFICENT_SEVEN[symbol]['emoji']} {symbol}", value="Error")
         
         st.markdown("---")
         
@@ -720,39 +928,36 @@ def main():
             use_container_width=True
         )
         
-        # Tabla de datos detallados con colores
-        st.markdown("### 📋 Datos Detallados")
+        # Tabla de datos detallados con colores (compacta para móvil)
+        with st.expander("📋 Datos Detallados", expanded=False):
+            table_data = []
+            for symbol in selected_symbols:
+                if stock_data[symbol]:
+                    d = stock_data[symbol]
+                    change = calculate_change(d["current_price"], d["prev_close"])
+                    table_data.append({
+                        "📈": f"{MAGNIFICENT_SEVEN[symbol]['emoji']}",
+                        "Símbolo": symbol,
+                        "Precio": f"${d['current_price']:.2f}",
+                        "Cambio": change,
+                        "Cap.": format_market_cap(d["market_cap"]),
+                        "P/E": f"{d['pe_ratio']:.1f}" if d['pe_ratio'] else "-",
+                    })
         
-        table_data = []
-        for symbol in selected_symbols:
-            if stock_data[symbol]:
-                d = stock_data[symbol]
-                change = calculate_change(d["current_price"], d["prev_close"])
-                table_data.append({
-                    "Acción": f"{MAGNIFICENT_SEVEN[symbol]['emoji']} {MAGNIFICENT_SEVEN[symbol]['name']}",
-                    "Símbolo": symbol,
-                    "Precio Actual": f"${d['current_price']:.2f}",
-                    "Cambio %": change,
-                    "Cap. Mercado": format_market_cap(d["market_cap"]),
-                    "P/E Ratio": f"{d['pe_ratio']:.2f}" if d['pe_ratio'] else "N/A",
-                    "52W Alto": f"${d['52w_high']:.2f}",
-                    "52W Bajo": f"${d['52w_low']:.2f}"
-                })
-        
-        if table_data:
-            df = pd.DataFrame(table_data)
-            
-            # Formatear la columna de cambio con colores
-            def color_change(val):
-                if isinstance(val, (int, float)):
-                    color = COLORS["up"] if val >= 0 else COLORS["down"]
-                    return f'color: {color}; font-weight: bold'
-                return ''
-            
-            # Mostrar dataframe con estilo
-            styled_df = df.style.applymap(color_change, subset=['Cambio %'])
-            styled_df = styled_df.format({'Cambio %': '{:+.2f}%'})
-            st.dataframe(styled_df, use_container_width=True, hide_index=True)
+            if table_data:
+                df = pd.DataFrame(table_data)
+                
+                # Formatear la columna de cambio con colores
+                def color_change(val):
+                    if isinstance(val, (int, float)):
+                        color = COLORS["up"] if val >= 0 else COLORS["down"]
+                        return f'color: {color}; font-weight: bold'
+                    return ''
+                
+                # Mostrar dataframe con estilo
+                styled_df = df.style.applymap(color_change, subset=['Cambio'])
+                styled_df = styled_df.format({'Cambio': '{:+.2f}%'})
+                st.dataframe(styled_df, use_container_width=True, hide_index=True)
     
     # TAB 2: Comparativas
     with tab2:
