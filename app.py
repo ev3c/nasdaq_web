@@ -117,14 +117,9 @@ st.markdown("""
         padding-right: 1rem !important;
     }
     
-    /* Sidebar - Desktop */
+    /* Ocultar sidebar completamente */
     [data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #FFFFFF 0%, #FDF6F0 100%) !important;
-        border-right: 1px solid #ECEFF1;
-    }
-    
-    [data-testid="stSidebar"] .stMarkdown {
-        color: var(--text-secondary);
+        display: none !important;
     }
     
     /* Tabs */
@@ -384,16 +379,6 @@ st.markdown("""
             font-size: 16px !important; /* Evita zoom en iOS */
         }
         
-        /* Sidebar overlay en móvil */
-        [data-testid="stSidebar"] {
-            min-width: 85vw !important;
-            width: 85vw !important;
-        }
-        
-        [data-testid="stSidebar"] > div {
-            padding: 1rem 0.8rem !important;
-        }
-        
         /* Expanders más compactos */
         .streamlit-expanderHeader {
             font-size: 0.85rem;
@@ -458,16 +443,6 @@ st.markdown("""
         }
     }
     
-    /* ============================================
-       DESKTOP (> 1024px)
-       ============================================ */
-    @media (min-width: 1025px) {
-        [data-testid="stSidebar"] {
-            min-width: 280px !important;
-            width: 280px !important;
-        }
-    }
-    
     /* Touch-friendly improvements */
     @media (hover: none) and (pointer: coarse) {
         /* Disable hover effects on touch devices */
@@ -502,20 +477,6 @@ MAGNIFICENT_SEVEN = {
 
 PORTFOLIO_FILE = "portfolio.json"
 ALERTS_FILE = "alerts.json"
-
-
-def symbol_short_name(symbol):
-    """Obtener nombre corto para el símbolo (útil en móviles)"""
-    short_names = {
-        "GOOGL": "Google",
-        "AMZN": "Amazon",
-        "AAPL": "Apple",
-        "META": "Meta",
-        "MSFT": "Microsoft",
-        "NVDA": "NVIDIA",
-        "TSLA": "Tesla"
-    }
-    return short_names.get(symbol, symbol)
 
 
 def load_portfolio():
@@ -828,62 +789,12 @@ def main():
     </div>
     """, unsafe_allow_html=True)
     
-    # Sidebar
-    with st.sidebar:
-        st.markdown("### ⚙️ Configuración")
-        
-        # Selector de período
-        period = st.selectbox(
-            "📅 Período",
-            options=["1d", "5d", "1mo", "3mo", "6mo", "1y", "2y", "5y"],
-            index=2,
-            help="Período de tiempo para los gráficos"
-        )
-        
-        # Selector de acciones
-        st.markdown("### 📊 Acciones")
-        selected_symbols = st.multiselect(
-            "Selecciona acciones",
-            options=list(MAGNIFICENT_SEVEN.keys()),
-            default=list(MAGNIFICENT_SEVEN.keys()),
-            format_func=lambda x: f"{MAGNIFICENT_SEVEN[x]['emoji']} {symbol_short_name(x)}"
-        )
-        
-        # Botón de actualizar
-        if st.button("🔄 Actualizar", use_container_width=True):
-            st.cache_data.clear()
-            st.rerun()
-        
-        # Leyenda de colores en expander (ahorra espacio en móvil)
-        with st.expander("🎨 Leyenda de colores", expanded=False):
-            legend_html = '<div style="padding: 0.5rem; background: white; border-radius: 10px;">'
-            for symbol, info in MAGNIFICENT_SEVEN.items():
-                legend_html += f'''
-                <div style="display: flex; align-items: center; margin-bottom: 0.3rem;">
-                    <div style="width: 12px; height: 12px; background: {info['color']}; border-radius: 3px; margin-right: 6px; flex-shrink: 0;"></div>
-                    <span style="color: #37474F; font-size: 0.8rem;">{info['emoji']} {symbol}</span>
-                </div>'''
-            legend_html += f'''
-            <div style="margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid #ECEFF1; display: flex; gap: 1rem;">
-                <span style="color: {COLORS['up']}; font-size: 0.75rem; font-weight: 600;">▲ Sube</span>
-                <span style="color: {COLORS['down']}; font-size: 0.75rem; font-weight: 600;">▼ Baja</span>
-            </div>
-            </div>'''
-            st.markdown(legend_html, unsafe_allow_html=True)
-        
-        st.markdown(f"""
-        <div style="text-align: center; color: #78909C; font-size: 0.75rem; margin-top: 0.5rem;">
-            <p style="margin: 0;">Yahoo Finance • {datetime.now().strftime("%H:%M")}</p>
-        </div>
-        """, unsafe_allow_html=True)
+    # Usar todas las acciones por defecto
+    selected_symbols = list(MAGNIFICENT_SEVEN.keys())
     
-    if not selected_symbols:
-        st.warning("⚠️ Por favor, selecciona al menos una acción en el panel lateral.")
-        return
-    
-    # Obtener datos
+    # Obtener datos con período por defecto (1 mes) para métricas
     with st.spinner("📡 Obteniendo datos del mercado..."):
-        stock_data = get_stock_data(selected_symbols, period)
+        stock_data = get_stock_data(selected_symbols, "1mo")
     
     # Tabs principales
     tab1, tab2, tab3, tab4 = st.tabs([
@@ -922,9 +833,32 @@ def main():
         
         st.markdown("---")
         
+        # Selector de período para gráfico de precios
+        period_options = {
+            "1D": "1d", "5D": "5d", "1M": "1mo", "3M": "3mo", 
+            "6M": "6mo", "1A": "1y", "2A": "2y", "5A": "5y"
+        }
+        
+        col_title, col_period = st.columns([3, 1])
+        with col_title:
+            st.markdown("#### 📈 Evolución de Precios")
+        with col_period:
+            period_price = st.selectbox(
+                "Período",
+                options=list(period_options.keys()),
+                index=2,  # 1M por defecto
+                key="period_price",
+                label_visibility="collapsed"
+            )
+        
+        # Obtener datos con el período seleccionado
+        period_value = period_options[period_price]
+        with st.spinner(""):
+            chart_data = get_stock_data(selected_symbols, period_value)
+        
         # Gráfico de precios
         st.plotly_chart(
-            create_price_chart(stock_data, selected_symbols, "📈 Evolución de Precios"),
+            create_price_chart(chart_data, selected_symbols, ""),
             use_container_width=True
         )
         
@@ -961,15 +895,38 @@ def main():
     
     # TAB 2: Comparativas
     with tab2:
+        # Selector de período para comparativas
+        period_options_comp = {
+            "1D": "1d", "5D": "5d", "1M": "1mo", "3M": "3mo", 
+            "6M": "6mo", "1A": "1y", "2A": "2y", "5A": "5y"
+        }
+        
+        col_title_comp, col_period_comp = st.columns([3, 1])
+        with col_title_comp:
+            st.markdown("#### 📊 Comparativa de Rendimiento")
+        with col_period_comp:
+            period_comp = st.selectbox(
+                "Período",
+                options=list(period_options_comp.keys()),
+                index=2,  # 1M por defecto
+                key="period_comp",
+                label_visibility="collapsed"
+            )
+        
+        # Obtener datos con el período seleccionado
+        period_comp_value = period_options_comp[period_comp]
+        with st.spinner(""):
+            comp_data = get_stock_data(selected_symbols, period_comp_value)
+        
         # Gráfico de comparativa de rendimiento
         st.plotly_chart(
-            create_comparison_chart(stock_data, selected_symbols),
+            create_comparison_chart(comp_data, selected_symbols),
             use_container_width=True
         )
         
         # Gráfico de capitalización de mercado
         st.plotly_chart(
-            create_market_cap_chart(stock_data, selected_symbols),
+            create_market_cap_chart(comp_data, selected_symbols),
             use_container_width=True
         )
         
@@ -978,8 +935,8 @@ def main():
         
         performance_data = []
         for symbol in selected_symbols:
-            if stock_data[symbol] and len(stock_data[symbol]["history"]) > 0:
-                hist = stock_data[symbol]["history"]
+            if comp_data[symbol] and len(comp_data[symbol]["history"]) > 0:
+                hist = comp_data[symbol]["history"]
                 first_price = hist['Close'].iloc[0]
                 last_price = hist['Close'].iloc[-1]
                 change = ((last_price - first_price) / first_price) * 100
