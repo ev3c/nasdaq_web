@@ -12,6 +12,7 @@ from plotly.subplots import make_subplots
 from datetime import datetime, timedelta
 import json
 import os
+import base64
 
 # Configuración de la página
 st.set_page_config(
@@ -548,6 +549,26 @@ def save_alerts(alerts):
     """Guardar alertas en archivo JSON"""
     with open(ALERTS_FILE, 'w') as f:
         json.dump(alerts, f, indent=2)
+
+
+def create_download_link(data, filename, text):
+    """Crear enlace de descarga para datos JSON"""
+    json_str = json.dumps(data, indent=2, ensure_ascii=False)
+    b64 = base64.b64encode(json_str.encode()).decode()
+    return f'<a href="data:application/json;base64,{b64}" download="{filename}" style="text-decoration: none;">{text}</a>'
+
+
+def export_data_button(data, filename, button_text, key):
+    """Botón para exportar datos como JSON"""
+    json_str = json.dumps(data, indent=2, ensure_ascii=False)
+    st.download_button(
+        label=button_text,
+        data=json_str,
+        file_name=filename,
+        mime="application/json",
+        key=key,
+        use_container_width=True
+    )
 
 
 @st.cache_data(ttl=300)  # Cache de 5 minutos
@@ -1114,6 +1135,40 @@ def main():
                             """, unsafe_allow_html=True)
             else:
                 st.info("No hay alertas configuradas. Añade una alerta en el panel izquierdo.")
+        
+        # Sección de importar/exportar alertas
+        st.markdown("---")
+        st.markdown("#### 💾 Guardar / Cargar Alertas")
+        
+        col_exp, col_imp = st.columns(2)
+        
+        with col_exp:
+            if st.session_state.alerts:
+                export_data_button(
+                    st.session_state.alerts, 
+                    "alertas_nasdaq.json", 
+                    "⬇️ Exportar Alertas", 
+                    "export_alerts"
+                )
+            else:
+                st.button("⬇️ Exportar Alertas", disabled=True, use_container_width=True)
+        
+        with col_imp:
+            uploaded_alerts = st.file_uploader(
+                "Importar", 
+                type="json", 
+                key="import_alerts",
+                label_visibility="collapsed"
+            )
+            if uploaded_alerts is not None:
+                try:
+                    imported_alerts = json.load(uploaded_alerts)
+                    st.session_state.alerts = imported_alerts
+                    save_alerts(imported_alerts)
+                    st.success("Alertas importadas correctamente")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Error al importar: {e}")
     
     # TAB 4: Portfolio
     with tab4:
@@ -1261,6 +1316,39 @@ def main():
             if portfolio and st.button("Limpiar Portfolio", type="secondary"):
                 save_portfolio({})
                 st.rerun()
+        
+        # Sección de importar/exportar portfolio
+        st.markdown("---")
+        st.markdown("#### 💾 Guardar / Cargar Portfolio")
+        
+        col_exp_p, col_imp_p = st.columns(2)
+        
+        with col_exp_p:
+            if portfolio:
+                export_data_button(
+                    portfolio, 
+                    "portfolio_nasdaq.json", 
+                    "⬇️ Exportar Portfolio", 
+                    "export_portfolio"
+                )
+            else:
+                st.button("⬇️ Exportar Portfolio", disabled=True, use_container_width=True)
+        
+        with col_imp_p:
+            uploaded_portfolio = st.file_uploader(
+                "Importar", 
+                type="json", 
+                key="import_portfolio",
+                label_visibility="collapsed"
+            )
+            if uploaded_portfolio is not None:
+                try:
+                    imported_portfolio = json.load(uploaded_portfolio)
+                    save_portfolio(imported_portfolio)
+                    st.success("Portfolio importado correctamente")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Error al importar: {e}")
 
 
 if __name__ == "__main__":
