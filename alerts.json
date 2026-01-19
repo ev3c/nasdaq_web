@@ -1,8 +1,4 @@
 {
-  "GOOGL": {
-    "change_down": 0.3,
-    "change_up": 5.0
-  },
   "AMZN": {
     "change_down": 10.0,
     "change_up": 5.0
@@ -26,5 +22,8 @@
   "TSLA": {
     "change_down": 10.0,
     "change_up": 5.0
+  },
+  "GOOGL": {
+    "change_down": 0.2
   }
 }

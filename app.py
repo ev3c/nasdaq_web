@@ -868,11 +868,8 @@ def main():
     st.markdown("""
     <div class="main-header-responsive" style="text-align: center; padding: 0.3rem 0; margin-bottom: 0.3rem;">
         <h1 style="font-size: clamp(1.1rem, 4vw, 1.6rem) !important; margin: 0 !important; line-height: 1.2;">
-NASDAQ Magnificent 7
+            NASDAQ Magnificent 7 <span style="font-size: 0.6em; color: #9E9E9E; font-weight: 400;">v1.0</span>
         </h1>
-        <p style="color: #78909C; font-size: clamp(0.7rem, 2.5vw, 0.9rem); margin: 0.1rem 0 0 0;">
-            Monitoreo en tiempo real v1.0
-        </p>
     </div>
     """, unsafe_allow_html=True)
     
@@ -919,10 +916,49 @@ NASDAQ Magnificent 7
         </style>
         """, unsafe_allow_html=True)
     
-    col_check, col_countdown, col_space = st.columns([1.1, 0.35, 4.55])
+    # Inicializar estado del sonido
+    if "sound_enabled" not in st.session_state:
+        st.session_state.sound_enabled = False
+    
+    # CSS para botón de sonido pequeño
+    st.markdown("""
+    <style>
+    [data-testid="stButton"][data-testid-key="toggle_sound"] button {
+        padding: 2px 10px !important;
+        min-height: 28px !important;
+        font-size: 0.9rem !important;
+        white-space: nowrap !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    col_check, col_countdown, col_sound, col_space = st.columns([1.1, 0.35, 0.6, 3.95])
     
     with col_check:
         auto_refresh = st.checkbox("🔄 Actualizar cada 5 minutos", value=auto_refresh_default, key="auto_refresh")
+    
+    with col_sound:
+        if st.button("🔊 ON" if st.session_state.sound_enabled else "🔇 OFF", key="toggle_sound"):
+            st.session_state.sound_enabled = not st.session_state.sound_enabled
+            if st.session_state.sound_enabled:
+                # Reproducir beep de prueba para activar el audio
+                components.html("""
+                <script>
+                    try {
+                        var audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                        var oscillator = audioCtx.createOscillator();
+                        var gainNode = audioCtx.createGain();
+                        oscillator.connect(gainNode);
+                        gainNode.connect(audioCtx.destination);
+                        oscillator.frequency.value = 880;
+                        oscillator.type = 'square';
+                        gainNode.gain.value = 0.2;
+                        oscillator.start();
+                        oscillator.stop(audioCtx.currentTime + 0.1);
+                    } catch(e) {}
+                </script>
+                """, height=0)
+            st.rerun()
     
     # Actualizar query params según el estado del checkbox
     if auto_refresh:
@@ -1250,93 +1286,169 @@ NASDAQ Magnificent 7
                         else:
                             alert_messages.append(f"{a['symbol']}: Cambió {a['change']:+.2f}%")
                     
-                    popup_message = "\\n".join(alert_messages)
+                    # Construir HTML para cada alerta en el modal
+                    alerts_html = ""
+                    for a in triggered:
+                        if a["type"] in ["upper", "change_up"]:
+                            color = "#4CAF50"
+                            bg = "#E8F5E9"
+                            arrow = "▲"
+                            if a["type"] == "upper":
+                                text = f'{a["symbol"]}: Superó ${a["threshold"]:.2f} (Actual: ${a["price"]:.2f})'
+                            else:
+                                text = f'{a["symbol"]}: Subió {a["change"]:+.2f}% (Umbral: +{a["threshold"]:.1f}%)'
+                        else:
+                            color = "#E53935"
+                            bg = "#FFEBEE"
+                            arrow = "▼"
+                            if a["type"] == "lower":
+                                text = f'{a["symbol"]}: Bajó de ${a["threshold"]:.2f} (Actual: ${a["price"]:.2f})'
+                            else:
+                                text = f'{a["symbol"]}: Bajó {a["change"]:+.2f}% (Umbral: -{a["threshold"]:.1f}%)'
+                        
+                        alerts_html += f'<div style="background:{bg};border-left:4px solid {color};padding:10px 14px;margin:8px 0;border-radius:0 8px 8px 0;"><span style="color:{color};font-weight:bold;">{arrow}</span> {text}</div>'
                     
-                    # Reproducir sonido de alarma y mostrar ventana emergente
-                    st.markdown(f"""
+                    # Verificar si el sonido está habilitado
+                    sound_enabled = st.session_state.get("sound_enabled", False)
+                    
+                    # Reproducir sonido de alarma y mostrar modal en ventana emergente
+                    components.html(f"""
                     <script>
                         (function() {{
-                            // Sonido de alarma
-                            try {{
-                                var audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                                var oscillator = audioCtx.createOscillator();
-                                var gainNode = audioCtx.createGain();
-                                
-                                oscillator.connect(gainNode);
-                                gainNode.connect(audioCtx.destination);
-                                
-                                oscillator.frequency.value = 800;
-                                oscillator.type = 'sine';
-                                gainNode.gain.value = 0.3;
-                                
-                                oscillator.start();
-                                
-                                // Beep pattern: 3 beeps
-                                setTimeout(function() {{ gainNode.gain.value = 0; }}, 200);
-                                setTimeout(function() {{ gainNode.gain.value = 0.3; }}, 300);
-                                setTimeout(function() {{ gainNode.gain.value = 0; }}, 500);
-                                setTimeout(function() {{ gainNode.gain.value = 0.3; }}, 600);
-                                setTimeout(function() {{ gainNode.gain.value = 0; }}, 800);
-                                setTimeout(function() {{ oscillator.stop(); }}, 900);
-                            }} catch(e) {{
-                                console.log('Audio not supported');
+                            var soundEnabled = {'true' if sound_enabled else 'false'};
+                            
+                            // Sonido de alarma usando Audio API
+                            function playBeep() {{
+                                if (!soundEnabled) return;
+                                try {{
+                                    // Crear contexto de audio
+                                    var audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                                    
+                                    // Función para un beep
+                                    function beep(startTime, duration) {{
+                                        var oscillator = audioCtx.createOscillator();
+                                        var gainNode = audioCtx.createGain();
+                                        oscillator.connect(gainNode);
+                                        gainNode.connect(audioCtx.destination);
+                                        oscillator.frequency.value = 880;
+                                        oscillator.type = 'square';
+                                        gainNode.gain.value = 0.3;
+                                        oscillator.start(audioCtx.currentTime + startTime);
+                                        oscillator.stop(audioCtx.currentTime + startTime + duration);
+                                    }}
+                                    
+                                    // 5 beeps más fuertes
+                                    beep(0, 0.2);
+                                    beep(0.3, 0.2);
+                                    beep(0.6, 0.2);
+                                    beep(0.9, 0.2);
+                                    beep(1.2, 0.2);
+                                }} catch(e) {{
+                                    console.log('Audio error:', e);
+                                }}
                             }}
                             
-                            // Ventana emergente con detalles
-                            setTimeout(function() {{
-                                alert("🚨 ALERTAS ACTIVADAS\\n\\n{popup_message}");
-                            }}, 100);
+                            // Ejecutar sonido
+                            playBeep();
+                            
+                            // Crear modal en el documento padre
+                            var parentDoc = window.parent.document;
+                            
+                            // Eliminar modal anterior si existe
+                            var oldModal = parentDoc.getElementById('nasdaq-alert-modal');
+                            if (oldModal) oldModal.remove();
+                            
+                            // Crear overlay
+                            var overlay = parentDoc.createElement('div');
+                            overlay.id = 'nasdaq-alert-modal';
+                            overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;justify-content:center;align-items:center;z-index:999999;font-family:Nunito,sans-serif;';
+                            
+                            // Crear contenido del modal
+                            overlay.innerHTML = `
+                                <div style="background:linear-gradient(135deg,#FDF6F0 0%,#FFFFFF 100%);border-radius:20px;padding:24px;max-width:400px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.3);animation:slideIn 0.3s ease;">
+                                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;padding-bottom:12px;border-bottom:2px solid #ECEFF1;">
+                                        <span style="font-size:1.8rem;">🚨</span>
+                                        <span style="font-size:1.2rem;font-weight:700;color:#37474F;">Alertas Activadas</span>
+                                    </div>
+                                    <div style="max-height:300px;overflow-y:auto;">
+                                        {alerts_html}
+                                    </div>
+                                    <button id="closeAlertBtn" style="width:100%;margin-top:16px;padding:12px;background:linear-gradient(135deg,#B39DDB 0%,#90CAF9 100%);color:white;border:none;border-radius:12px;font-size:1rem;font-weight:600;cursor:pointer;font-family:Nunito,sans-serif;">
+                                        Aceptar
+                                    </button>
+                                </div>
+                            `;
+                            
+                            // Añadir al documento padre
+                            parentDoc.body.appendChild(overlay);
+                            
+                            // Añadir evento para cerrar
+                            parentDoc.getElementById('closeAlertBtn').onclick = function() {{
+                                overlay.remove();
+                            }};
+                            
+                            // Cerrar al hacer clic fuera
+                            overlay.onclick = function(e) {{
+                                if (e.target === overlay) overlay.remove();
+                            }};
                         }})();
                     </script>
-                    """, unsafe_allow_html=True)
+                    """, height=0)
                     
                     for alert in triggered:
                         if alert["type"] == "upper":
                             st.markdown(f"""
-                            <div class="alert-up">
-                                ▲ <strong>{alert['symbol']}</strong> ha superado ${alert['threshold']:.2f} 
-                                (Actual: <span style="color: {COLORS['up']}; font-weight: bold;">${alert['price']:.2f}</span>)
+                            <div style="background: linear-gradient(90deg, #C8E6C9 0%, #E8F5E9 100%); border-left: 5px solid #4CAF50; padding: 12px 16px; border-radius: 0 12px 12px 0; margin: 8px 0;">
+                                <span style="color: #4CAF50; font-size: 1.2rem;">▲</span> <strong>{alert['symbol']}</strong> ha superado ${alert['threshold']:.2f} 
+                                (Actual: <span style="color: #4CAF50; font-weight: bold;">${alert['price']:.2f}</span>)
                             </div>
                             """, unsafe_allow_html=True)
                         elif alert["type"] == "lower":
                             st.markdown(f"""
-                            <div class="alert-down">
-                                ▼ <strong>{alert['symbol']}</strong> ha bajado de ${alert['threshold']:.2f} 
-                                (Actual: <span style="color: {COLORS['down']}; font-weight: bold;">${alert['price']:.2f}</span>)
+                            <div style="background: linear-gradient(90deg, #FFCDD2 0%, #FFEBEE 100%); border-left: 5px solid #E53935; padding: 12px 16px; border-radius: 0 12px 12px 0; margin: 8px 0;">
+                                <span style="color: #E53935; font-size: 1.2rem;">▼</span> <strong>{alert['symbol']}</strong> ha bajado de ${alert['threshold']:.2f} 
+                                (Actual: <span style="color: #E53935; font-weight: bold;">${alert['price']:.2f}</span>)
                             </div>
                             """, unsafe_allow_html=True)
                         elif alert["type"] == "change_up":
                             st.markdown(f"""
-                            <div class="alert-up">
-                                ▲ <strong>{alert['symbol']}</strong> ha subido 
-                                <span style="color: {COLORS['up']}; font-weight: bold;">{alert['change']:+.2f}%</span>
+                            <div style="background: linear-gradient(90deg, #C8E6C9 0%, #E8F5E9 100%); border-left: 5px solid #4CAF50; padding: 12px 16px; border-radius: 0 12px 12px 0; margin: 8px 0;">
+                                <span style="color: #4CAF50; font-size: 1.2rem;">▲</span> <strong>{alert['symbol']}</strong> ha subido 
+                                <span style="color: #4CAF50; font-weight: bold;">{alert['change']:+.2f}%</span>
                                 (Umbral: +{alert['threshold']:.1f}%)
                             </div>
                             """, unsafe_allow_html=True)
                         elif alert["type"] == "change_down":
                             st.markdown(f"""
-                            <div class="alert-down">
-                                ▼ <strong>{alert['symbol']}</strong> ha bajado 
-                                <span style="color: {COLORS['down']}; font-weight: bold;">{alert['change']:+.2f}%</span>
+                            <div style="background: linear-gradient(90deg, #FFCDD2 0%, #FFEBEE 100%); border-left: 5px solid #E53935; padding: 12px 16px; border-radius: 0 12px 12px 0; margin: 8px 0;">
+                                <span style="color: #E53935; font-size: 1.2rem;">▼</span> <strong>{alert['symbol']}</strong> ha bajado 
+                                <span style="color: #E53935; font-weight: bold;">{alert['change']:+.2f}%</span>
                                 (Umbral: -{alert['threshold']:.1f}%)
                             </div>
                             """, unsafe_allow_html=True)
                         else:
-                            change_color = COLORS['up'] if alert['change'] >= 0 else COLORS['down']
+                            if alert['change'] >= 0:
+                                bg_style = "background: linear-gradient(90deg, #C8E6C9 0%, #E8F5E9 100%); border-left: 5px solid #4CAF50;"
+                                color = "#4CAF50"
+                                arrow = "▲"
+                            else:
+                                bg_style = "background: linear-gradient(90deg, #FFCDD2 0%, #FFEBEE 100%); border-left: 5px solid #E53935;"
+                                color = "#E53935"
+                                arrow = "▼"
                             st.markdown(f"""
-                            <div class="{'alert-up' if alert['change'] >= 0 else 'alert-down'}">
-                                <strong>{alert['symbol']}</strong> ha cambiado 
-                                <span style="color: {change_color}; font-weight: bold;">{alert['change']:.2f}%</span>
+                            <div style="{bg_style} padding: 12px 16px; border-radius: 0 12px 12px 0; margin: 8px 0;">
+                                <span style="color: {color}; font-size: 1.2rem;">{arrow}</span> <strong>{alert['symbol']}</strong> ha cambiado 
+                                <span style="color: {color}; font-weight: bold;">{alert['change']:.2f}%</span>
                                 (Umbral: ±{alert['threshold']:.1f}%)
                             </div>
                             """, unsafe_allow_html=True)
                     
                     # Botón para silenciar alertas activadas
-                    if st.button("🔕 Silenciar alertas activadas", key="silence_alerts", use_container_width=True):
+                    if st.button("🗑️ Eliminar alertas activadas", key="silence_alerts", use_container_width=True):
                         for a in triggered:
                             alert_id = f"{a['symbol']}_{a['type']}_{a.get('threshold', '')}"
                             st.session_state.silenced_alerts.add(alert_id)
-                        st.toast("Alertas silenciadas. Se reactivarán al recargar la página.")
+                        st.toast("Alertas eliminadas. Se reactivarán al recargar la página.")
             else:
                 st.info("No hay alertas configuradas. Añade una alerta en el panel izquierdo.")
         
