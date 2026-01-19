@@ -575,7 +575,7 @@ def create_price_chart(data, symbols, title="Evolución de Precios"):
                 x=hist.index,
                 y=hist['Close'],
                 mode='lines',
-                name=f"{MAGNIFICENT_SEVEN[symbol]['emoji']} {symbol} {arrow} {change:+.1f}%",
+                name=f"{symbol} {arrow} {change:+.1f}%",
                 line=dict(color=line_color, width=3),
                 hovertemplate=f"<b>{symbol}</b><br>" +
                              "Fecha: %{x}<br>" +
@@ -641,7 +641,7 @@ def create_comparison_chart(data, symbols):
                 x=hist.index,
                 y=normalized,
                 mode='lines',
-                name=f"{MAGNIFICENT_SEVEN[symbol]['emoji']} {symbol} {arrow} {final_change:+.1f}%",
+                name=f"{symbol} {arrow} {final_change:+.1f}%",
                 line=dict(color=line_color, width=3),
                 fill='tozeroy',
                 fillcolor=fill_color,
@@ -697,7 +697,7 @@ def create_market_cap_chart(data, symbols):
     for symbol in symbols:
         if data[symbol] and data[symbol]["market_cap"]:
             caps.append(data[symbol]["market_cap"] / 1e12)  # En trillones
-            names.append(f"{MAGNIFICENT_SEVEN[symbol]['emoji']} {symbol}")
+            names.append(symbol)
             # Usar el color único de cada acción
             colors.append(MAGNIFICENT_SEVEN[symbol]['color'])
     
@@ -801,7 +801,7 @@ def main():
         "📊 Dashboard",
         "📈 Comparativas", 
         "🔔 Alertas",
-        "Portfolio"
+        "💰 Portfolio"
     ])
     
     # TAB 1: Dashboard
@@ -824,12 +824,12 @@ def main():
                         change = calculate_change(current, prev)
                         
                         st.metric(
-                            label=f"{MAGNIFICENT_SEVEN[symbol]['emoji']} {symbol}",
+                            label=symbol,
                             value=f"${current:.2f}",
                             delta=f"{change:.2f}%"
                         )
                     else:
-                        st.metric(label=f"{MAGNIFICENT_SEVEN[symbol]['emoji']} {symbol}", value="Error")
+                        st.metric(label=symbol, value="Error")
         
         st.markdown("---")
         
@@ -944,7 +944,6 @@ def main():
                 performance_data.append({
                     "symbol": symbol,
                     "name": MAGNIFICENT_SEVEN[symbol]['name'],
-                    "emoji": MAGNIFICENT_SEVEN[symbol]['emoji'],
                     "change": change
                 })
         
@@ -957,7 +956,7 @@ def main():
             st.markdown(f"""
             <div class="{'alert-up' if is_positive else 'alert-down'}">
                 <span style="font-size: 1.3rem; margin-right: 8px;">{medal}</span>
-                <strong style="color: #37474F;">{item['emoji']} {item['name']}</strong>
+                <strong style="color: #37474F;">{item['symbol']} - {item['name']}</strong>
                 <span style="float: right; color: {color}; font-weight: 700; font-family: 'IBM Plex Mono', monospace;">
                     {item['change']:+.2f}%
                 </span>
@@ -981,7 +980,7 @@ def main():
             alert_symbol = st.selectbox(
                 "Selecciona la acción",
                 options=selected_symbols,
-                format_func=lambda x: f"{MAGNIFICENT_SEVEN[x]['emoji']} {MAGNIFICENT_SEVEN[x]['name']}"
+                format_func=lambda x: f"{x} - {MAGNIFICENT_SEVEN[x]['name']}"
             )
             
             current_price = stock_data[alert_symbol]["current_price"] if stock_data[alert_symbol] else 0
@@ -1030,7 +1029,7 @@ def main():
             
             if st.session_state.alerts:
                 for symbol, configs in st.session_state.alerts.items():
-                    with st.expander(f"{MAGNIFICENT_SEVEN[symbol]['emoji']} {symbol}", expanded=True):
+                    with st.expander(f"{symbol}", expanded=True):
                         for key, value in configs.items():
                             if key == "upper":
                                 st.markdown(f"<span style='color: {COLORS['up']}'>📈</span> Precio arriba de: **${value:.2f}**", unsafe_allow_html=True)
