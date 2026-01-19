@@ -801,7 +801,7 @@ def main():
         "📊 Dashboard",
         "📈 Comparativas", 
         "🔔 Alertas",
-        "💼 Portfolio"
+        "Portfolio"
     ])
     
     # TAB 1: Dashboard
@@ -863,14 +863,13 @@ def main():
         )
         
         # Tabla de datos detallados
-        st.markdown("#### 📋 Datos Detallados")
+        st.markdown("#### Datos Detallados")
         table_data = []
         for symbol in selected_symbols:
             if stock_data[symbol]:
                 d = stock_data[symbol]
                 change = calculate_change(d["current_price"], d["prev_close"])
                 table_data.append({
-                    "": MAGNIFICENT_SEVEN[symbol]['emoji'],
                     "Símbolo": symbol,
                     "Precio": f"${d['current_price']:.2f}",
                     "Cambio": change,
@@ -1080,7 +1079,7 @@ def main():
     
     # TAB 4: Portfolio
     with tab4:
-        st.markdown("### 💼 Gestión de Portfolio")
+        st.markdown("### Gestión de Portfolio")
         st.markdown("Registra tus inversiones y haz seguimiento de tu rendimiento.")
         
         # Cargar portfolio
@@ -1089,12 +1088,12 @@ def main():
         col1, col2 = st.columns([1, 1])
         
         with col1:
-            st.markdown("#### ➕ Añadir Posición")
+            st.markdown("#### Añadir Posición")
             
             port_symbol = st.selectbox(
                 "Acción",
                 options=list(MAGNIFICENT_SEVEN.keys()),
-                format_func=lambda x: f"{MAGNIFICENT_SEVEN[x]['emoji']} {MAGNIFICENT_SEVEN[x]['name']}",
+                format_func=lambda x: f"{x} - {MAGNIFICENT_SEVEN[x]['name']}",
                 key="portfolio_symbol"
             )
             
@@ -1102,7 +1101,7 @@ def main():
             buy_price = st.number_input("Precio de compra ($)", min_value=0.0, value=100.0, step=1.0)
             buy_date = st.date_input("Fecha de compra", value=datetime.now())
             
-            if st.button("💾 Guardar Posición", use_container_width=True):
+            if st.button("Guardar Posición", use_container_width=True):
                 if port_symbol not in portfolio:
                     portfolio[port_symbol] = []
                 
@@ -1113,11 +1112,11 @@ def main():
                 })
                 
                 save_portfolio(portfolio)
-                st.success("✅ Posición guardada correctamente")
+                st.success("Posición guardada correctamente")
                 st.rerun()
         
         with col2:
-            st.markdown("#### 📊 Resumen del Portfolio")
+            st.markdown("#### Resumen del Portfolio")
             
             if portfolio:
                 total_invested = 0
@@ -1140,7 +1139,7 @@ def main():
                                 total_current += current
                                 
                                 portfolio_details.append({
-                                    "Acción": f"{MAGNIFICENT_SEVEN[symbol]['emoji']} {symbol}",
+                                    "Símbolo": symbol,
                                     "Acciones": pos['shares'],
                                     "P. Compra": pos['buy_price'],
                                     "P. Actual": curr_price,
@@ -1157,11 +1156,11 @@ def main():
                     
                     m1, m2, m3 = st.columns(3)
                     with m1:
-                        st.metric("💰 Invertido", f"${total_invested:,.2f}")
+                        st.metric("Invertido", f"${total_invested:,.2f}")
                     with m2:
-                        st.metric("📈 Valor Actual", f"${total_current:,.2f}")
+                        st.metric("Valor Actual", f"${total_current:,.2f}")
                     with m3:
-                        st.metric("💵 Ganancia", f"${total_gain:+,.2f}", f"{total_gain_pct:+.2f}%")
+                        st.metric("Ganancia", f"${total_gain:+,.2f}", f"{total_gain_pct:+.2f}%")
                     
                     st.markdown("---")
                     
@@ -1188,17 +1187,16 @@ def main():
                     st.dataframe(styled_df, use_container_width=True, hide_index=True)
                     
                     # Gráfico de distribución con color único por acción
-                    # Extraer símbolos de los detalles del portfolio
                     pie_colors = []
                     for d in portfolio_details:
-                        symbol = d["Acción"].split()[-1]  # Obtener el símbolo (última palabra)
+                        symbol = d["Símbolo"]
                         if symbol in MAGNIFICENT_SEVEN:
                             pie_colors.append(MAGNIFICENT_SEVEN[symbol]['color'])
                         else:
                             pie_colors.append('#B39DDB')  # Color por defecto
                     
                     fig = go.Figure(data=[go.Pie(
-                        labels=[d["Acción"] for d in portfolio_details],
+                        labels=[d["Símbolo"] for d in portfolio_details],
                         values=[d["Valor"] for d in portfolio_details],
                         hole=0.45,
                         marker=dict(
@@ -1210,7 +1208,7 @@ def main():
                     )])
                     
                     fig.update_layout(
-                        title=dict(text="📊 Distribución del Portfolio", font=dict(color='#37474F', family='Nunito')),
+                        title=dict(text="Distribución del Portfolio", font=dict(color='#37474F', family='Nunito')),
                         template='plotly_white',
                         paper_bgcolor='rgba(255,255,255,0)',
                         plot_bgcolor='rgba(255,255,255,0)',
@@ -1222,7 +1220,7 @@ def main():
             else:
                 st.info("No hay posiciones en el portfolio. Añade tu primera inversión.")
             
-            if portfolio and st.button("🗑️ Limpiar Portfolio", type="secondary"):
+            if portfolio and st.button("Limpiar Portfolio", type="secondary"):
                 save_portfolio({})
                 st.rerun()
 
