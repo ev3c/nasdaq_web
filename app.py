@@ -882,16 +882,29 @@ NASDAQ Magnificent 7
     with st.spinner("📡 Obteniendo datos del mercado..."):
         stock_data = get_stock_data(selected_symbols, "1mo")
     
-    # Tabs principales
-    tab1, tab2, tab3, tab4 = st.tabs([
-        "📊 Dashboard",
-        "📈 Comparativas", 
-        "🔔 Alertas",
-        "💰 Portfolio"
-    ])
+    # Inicializar estado de pestaña activa
+    if "active_tab" not in st.session_state:
+        st.session_state.active_tab = "📊 Dashboard"
+    
+    # Navegación por pestañas (mantiene el estado)
+    tabs_options = ["📊 Dashboard", "📈 Comparativas", "🔔 Alertas", "💰 Portfolio"]
+    
+    selected_tab = st.radio(
+        "Navegación",
+        options=tabs_options,
+        index=tabs_options.index(st.session_state.active_tab),
+        horizontal=True,
+        key="tab_selector",
+        label_visibility="collapsed"
+    )
+    
+    # Actualizar estado
+    st.session_state.active_tab = selected_tab
+    
+    st.markdown("---")
     
     # TAB 1: Dashboard
-    with tab1:
+    if selected_tab == "📊 Dashboard":
         st.markdown("### 💹 Resumen")
         
         # Métricas principales - Grid adaptativo (4 columnas máx, se adapta en móvil)
@@ -979,7 +992,7 @@ NASDAQ Magnificent 7
             st.dataframe(styled_df, use_container_width=True, hide_index=True)
     
     # TAB 2: Comparativas
-    with tab2:
+    if selected_tab == "📈 Comparativas":
         # Selector de período para comparativas
         period_options_comp = {
             "1D": "1d", "5D": "5d", "1M": "1mo", "3M": "3mo", 
@@ -1046,7 +1059,7 @@ NASDAQ Magnificent 7
             """, unsafe_allow_html=True)
     
     # TAB 3: Alertas
-    with tab3:
+    if selected_tab == "🔔 Alertas":
         st.markdown("### 🔔 Sistema de Alertas")
         st.markdown("Configura alertas de precio para recibir notificaciones cuando se alcancen tus objetivos.")
         
@@ -1112,7 +1125,6 @@ NASDAQ Magnificent 7
                 st.session_state.alerts[alert_symbol][alert_key] = threshold
                 save_alerts(st.session_state.alerts)  # Guardar en archivo
                 st.success(f"✅ Alerta configurada para {alert_symbol}")
-                st.rerun()
         
         with col2:
             st.markdown("#### 📋 Alertas Activas")
@@ -1135,7 +1147,7 @@ NASDAQ Magnificent 7
                         if st.button(f"🗑️ Eliminar alertas de {symbol}", key=f"del_{symbol}"):
                             del st.session_state.alerts[symbol]
                             save_alerts(st.session_state.alerts)  # Guardar cambios
-                            st.rerun()
+                            st.toast(f"Alertas de {symbol} eliminadas")
                 
                 # Verificar alertas
                 triggered = check_alerts(stock_data, st.session_state.alerts)
@@ -1216,12 +1228,11 @@ NASDAQ Magnificent 7
                     st.session_state.alerts = imported_alerts
                     save_alerts(imported_alerts)
                     st.success("Alertas importadas correctamente")
-                    st.rerun()
                 except Exception as e:
                     st.error(f"Error al importar: {e}")
     
     # TAB 4: Portfolio
-    with tab4:
+    if selected_tab == "💰 Portfolio":
         st.markdown("### Gestión de Portfolio")
         st.markdown("Registra tus inversiones y haz seguimiento de tu rendimiento.")
         
@@ -1256,7 +1267,6 @@ NASDAQ Magnificent 7
                 
                 save_portfolio(portfolio)
                 st.success("Posición guardada correctamente")
-                st.rerun()
         
         with col2:
             st.markdown("#### Resumen del Portfolio")
@@ -1365,7 +1375,7 @@ NASDAQ Magnificent 7
             
             if portfolio and st.button("Limpiar Portfolio", type="secondary"):
                 save_portfolio({})
-                st.rerun()
+                st.toast("Portfolio limpiado")
         
         # Sección de importar/exportar portfolio
         st.markdown("---")
@@ -1396,7 +1406,6 @@ NASDAQ Magnificent 7
                     imported_portfolio = json.load(uploaded_portfolio)
                     save_portfolio(imported_portfolio)
                     st.success("Portfolio importado correctamente")
-                    st.rerun()
                 except Exception as e:
                     st.error(f"Error al importar: {e}")
 
