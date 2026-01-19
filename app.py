@@ -4,6 +4,7 @@ Aplicación para monitorear las 7 grandes tecnológicas del NASDAQ
 """
 
 import streamlit as st
+import streamlit.components.v1 as components
 import yfinance as yf
 import pandas as pd
 import plotly.express as px
@@ -901,34 +902,102 @@ NASDAQ Magnificent 7
     # Actualizar estado
     st.session_state.active_tab = selected_tab
     
+    # Leer estado de auto-refresh desde query params
+    query_params = st.query_params
+    auto_refresh_default = query_params.get("autorefresh", "0") == "1"
+    
+    # Checkbox de auto-actualización con cuenta atrás en la misma línea
+    if auto_refresh_default:
+        # Mostrar checkbox y cuenta atrás juntos
+        st.markdown("""
+        <style>
+        .auto-refresh-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+    
+    col_check, col_countdown, col_space = st.columns([1.1, 0.35, 4.55])
+    
+    with col_check:
+        auto_refresh = st.checkbox("🔄 Actualizar cada 5 minutos", value=auto_refresh_default, key="auto_refresh")
+    
+    # Actualizar query params según el estado del checkbox
+    if auto_refresh:
+        st.query_params["autorefresh"] = "1"
+        
+        with col_countdown:
+            # Limpiar caché para obtener datos frescos en cada ciclo
+            st.cache_data.clear()
+            
+            # Cuenta atrás
+            components.html("""
+            <div style="display: flex; align-items: center; justify-content: flex-start; font-family: 'Nunito', sans-serif; height: 38px;">
+                <span id="countdown" style="color: #B39DDB; font-weight: bold; font-size: 0.95rem; 
+                      background: white; padding: 4px 12px; border-radius: 12px; border: 2px solid #ECEFF1;">5:00</span>
+            </div>
+            <script>
+                var seconds = 300;
+                var countdownEl = document.getElementById('countdown');
+                var reloading = false;
+                
+                var timer = setInterval(function() {
+                    if (reloading) return;
+                    
+                    seconds--;
+                    if (countdownEl) {
+                        var mins = Math.floor(seconds / 60);
+                        var secs = seconds % 60;
+                        countdownEl.textContent = mins + ':' + (secs < 10 ? '0' : '') + secs;
+                        if (seconds <= 30) {
+                            countdownEl.style.color = '#E53935';
+                            countdownEl.style.borderColor = '#FFCDD2';
+                        }
+                    }
+                    if (seconds <= 0) {
+                        reloading = true;
+                        clearInterval(timer);
+                        countdownEl.textContent = '⟳';
+                        
+                        // Forzar recarga de la página
+                        try {
+                            window.parent.location.reload(true);
+                        } catch(e) {
+                            window.top.location.reload(true);
+                        }
+                    }
+                }, 1000);
+            </script>
+            """, height=38)
+    elif "autorefresh" in query_params:
+        del st.query_params["autorefresh"]
+    
     st.markdown("---")
     
     # TAB 1: Dashboard
     if selected_tab == "📊 Dashboard":
         st.markdown("### 💹 Resumen")
         
-        # Métricas principales - Grid adaptativo (4 columnas máx, se adapta en móvil)
-        # Dividir en filas de 4 para mejor visualización en móvil
-        num_cols = min(4, len(selected_symbols))
+        # Métricas principales en una sola línea horizontal
+        items_html = []
+        for symbol in selected_symbols:
+            if stock_data[symbol]:
+                current = stock_data[symbol]["current_price"]
+                prev = stock_data[symbol]["prev_close"]
+                change = calculate_change(current, prev)
+                change_color = COLORS["up"] if change >= 0 else COLORS["down"]
+                arrow = "▲" if change >= 0 else "▼"
+                
+                item = f'<div style="display:flex;flex-direction:column;align-items:center;background:white;padding:8px 10px;border-radius:10px;border:1px solid #ECEFF1;box-shadow:0 2px 8px rgba(0,0,0,0.04);min-width:80px;"><span style="font-weight:700;color:#37474F;font-size:0.85rem;">{symbol}</span><span style="font-family:monospace;font-weight:600;color:#37474F;font-size:0.9rem;">${current:.2f}</span><span style="font-family:monospace;font-weight:600;color:{change_color};font-size:0.8rem;">{arrow}{change:+.2f}%</span></div>'
+                items_html.append(item)
+            else:
+                item = f'<div style="display:flex;flex-direction:column;align-items:center;background:white;padding:8px 10px;border-radius:10px;border:1px solid #ECEFF1;min-width:80px;"><span style="font-weight:700;color:#37474F;font-size:0.85rem;">{symbol}</span><span style="color:#78909C;">Error</span></div>'
+                items_html.append(item)
         
-        for i in range(0, len(selected_symbols), num_cols):
-            row_symbols = selected_symbols[i:i + num_cols]
-            cols = st.columns(len(row_symbols))
-            
-            for idx, symbol in enumerate(row_symbols):
-                with cols[idx]:
-                    if stock_data[symbol]:
-                        current = stock_data[symbol]["current_price"]
-                        prev = stock_data[symbol]["prev_close"]
-                        change = calculate_change(current, prev)
-                        
-                        st.metric(
-                            label=symbol,
-                            value=f"${current:.2f}",
-                            delta=f"{change:.2f}%"
-                        )
-                    else:
-                        st.metric(label=symbol, value="Error")
+        html_content = '<div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-start;">' + ''.join(items_html) + '</div>'
+        st.markdown(html_content, unsafe_allow_html=True)
         
         st.markdown("---")
         
@@ -1149,12 +1218,78 @@ NASDAQ Magnificent 7
                             save_alerts(st.session_state.alerts)  # Guardar cambios
                             st.toast(f"Alertas de {symbol} eliminadas")
                 
+                # Inicializar alertas silenciadas (se borra al cerrar la app)
+                if "silenced_alerts" not in st.session_state:
+                    st.session_state.silenced_alerts = set()
+                
                 # Verificar alertas
-                triggered = check_alerts(stock_data, st.session_state.alerts)
+                all_triggered = check_alerts(stock_data, st.session_state.alerts)
+                
+                # Filtrar alertas que no estén silenciadas
+                triggered = []
+                for a in all_triggered:
+                    alert_id = f"{a['symbol']}_{a['type']}_{a.get('threshold', '')}"
+                    if alert_id not in st.session_state.silenced_alerts:
+                        triggered.append(a)
                 
                 if triggered:
                     st.markdown("---")
                     st.markdown("### ⚠️ Alertas Activadas")
+                    
+                    # Construir mensaje para la ventana emergente
+                    alert_messages = []
+                    for a in triggered:
+                        if a["type"] == "upper":
+                            alert_messages.append(f"▲ {a['symbol']}: Superó ${a['threshold']:.2f} (Actual: ${a['price']:.2f})")
+                        elif a["type"] == "lower":
+                            alert_messages.append(f"▼ {a['symbol']}: Bajó de ${a['threshold']:.2f} (Actual: ${a['price']:.2f})")
+                        elif a["type"] == "change_up":
+                            alert_messages.append(f"▲ {a['symbol']}: Subió {a['change']:+.2f}% (Umbral: +{a['threshold']:.1f}%)")
+                        elif a["type"] == "change_down":
+                            alert_messages.append(f"▼ {a['symbol']}: Bajó {a['change']:+.2f}% (Umbral: -{a['threshold']:.1f}%)")
+                        else:
+                            alert_messages.append(f"{a['symbol']}: Cambió {a['change']:+.2f}%")
+                    
+                    popup_message = "\\n".join(alert_messages)
+                    
+                    # Reproducir sonido de alarma y mostrar ventana emergente
+                    st.markdown(f"""
+                    <script>
+                        (function() {{
+                            // Sonido de alarma
+                            try {{
+                                var audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                                var oscillator = audioCtx.createOscillator();
+                                var gainNode = audioCtx.createGain();
+                                
+                                oscillator.connect(gainNode);
+                                gainNode.connect(audioCtx.destination);
+                                
+                                oscillator.frequency.value = 800;
+                                oscillator.type = 'sine';
+                                gainNode.gain.value = 0.3;
+                                
+                                oscillator.start();
+                                
+                                // Beep pattern: 3 beeps
+                                setTimeout(function() {{ gainNode.gain.value = 0; }}, 200);
+                                setTimeout(function() {{ gainNode.gain.value = 0.3; }}, 300);
+                                setTimeout(function() {{ gainNode.gain.value = 0; }}, 500);
+                                setTimeout(function() {{ gainNode.gain.value = 0.3; }}, 600);
+                                setTimeout(function() {{ gainNode.gain.value = 0; }}, 800);
+                                setTimeout(function() {{ oscillator.stop(); }}, 900);
+                            }} catch(e) {{
+                                console.log('Audio not supported');
+                            }}
+                            
+                            // Ventana emergente con detalles
+                            setTimeout(function() {{
+                                alert("🚨 ALERTAS ACTIVADAS\\n\\n{popup_message}");
+                            }}, 100);
+                        }})();
+                    </script>
+                    """, unsafe_allow_html=True)
+                    
                     for alert in triggered:
                         if alert["type"] == "upper":
                             st.markdown(f"""
@@ -1195,6 +1330,13 @@ NASDAQ Magnificent 7
                                 (Umbral: ±{alert['threshold']:.1f}%)
                             </div>
                             """, unsafe_allow_html=True)
+                    
+                    # Botón para silenciar alertas activadas
+                    if st.button("🔕 Silenciar alertas activadas", key="silence_alerts", use_container_width=True):
+                        for a in triggered:
+                            alert_id = f"{a['symbol']}_{a['type']}_{a.get('threshold', '')}"
+                            st.session_state.silenced_alerts.add(alert_id)
+                        st.toast("Alertas silenciadas. Se reactivarán al recargar la página.")
             else:
                 st.info("No hay alertas configuradas. Añade una alerta en el panel izquierdo.")
         
