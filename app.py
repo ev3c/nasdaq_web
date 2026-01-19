@@ -870,7 +870,7 @@ def main():
 NASDAQ Magnificent 7
         </h1>
         <p style="color: #78909C; font-size: clamp(0.7rem, 2.5vw, 0.9rem); margin: 0.1rem 0 0 0;">
-            Monitoreo en tiempo real
+            Monitoreo en tiempo real v1.0
         </p>
     </div>
     """, unsafe_allow_html=True)

@@ -1,8 +1,30 @@
 {
   "GOOGL": {
-    "change_percent": 3.0
+    "change_down": 10.0,
+    "change_up": 5.0
   },
   "AMZN": {
-    "change_percent": 2.5
+    "change_down": 10.0,
+    "change_up": 5.0
+  },
+  "AAPL": {
+    "change_down": 10.0,
+    "change_up": 5.0
+  },
+  "META": {
+    "change_down": 10.0,
+    "change_up": 5.0
+  },
+  "MSFT": {
+    "change_down": 10.0,
+    "change_up": 5.0
+  },
+  "NVDA": {
+    "change_down": 10.0,
+    "change_up": 5.0
+  },
+  "TSLA": {
+    "change_down": 10.0,
+    "change_up": 5.0
   }
 }
