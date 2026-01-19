@@ -845,7 +845,7 @@ def main():
     st.markdown("""
     <div class="main-header-responsive" style="text-align: center; padding: 0.3rem 0; margin-bottom: 0.3rem;">
         <h1 style="font-size: clamp(1.1rem, 4vw, 1.6rem) !important; margin: 0 !important; line-height: 1.2;">
-            <span style="margin-right: 0.4rem;">📈</span> NASDAQ Magnificent 7
+            <span style="margin-right: 0.4rem; color: #0A84FF;">📈</span> NASDAQ Magnificent 7
         </h1>
         <p style="color: #78909C; font-size: clamp(0.7rem, 2.5vw, 0.9rem); margin: 0.1rem 0 0 0;">
             Monitoreo en tiempo real
