@@ -836,6 +836,28 @@ def check_alerts(data, alerts_config):
                         "change": change,
                         "threshold": config["change_percent"]
                     })
+            
+            if "change_up" in config:
+                change = calculate_change(current_price, data[symbol]["prev_close"])
+                if change >= config["change_up"]:
+                    triggered_alerts.append({
+                        "symbol": symbol,
+                        "type": "change_up",
+                        "price": current_price,
+                        "change": change,
+                        "threshold": config["change_up"]
+                    })
+            
+            if "change_down" in config:
+                change = calculate_change(current_price, data[symbol]["prev_close"])
+                if change <= -config["change_down"]:
+                    triggered_alerts.append({
+                        "symbol": symbol,
+                        "type": "change_down",
+                        "price": current_price,
+                        "change": change,
+                        "threshold": config["change_down"]
+                    })
     
     return triggered_alerts
 
@@ -1048,7 +1070,7 @@ NASDAQ Magnificent 7
             
             alert_type = st.radio(
                 "Tipo de alerta",
-                options=["Precio objetivo (arriba)", "Precio objetivo (abajo)", "Cambio porcentual"]
+                options=["Precio objetivo (arriba)", "Precio objetivo (abajo)", "Cambio % (arriba)", "Cambio % (abajo)"]
             )
             
             if alert_type == "Precio objetivo (arriba)":
@@ -1067,14 +1089,22 @@ NASDAQ Magnificent 7
                     step=1.0
                 )
                 alert_key = "lower"
-            else:
+            elif alert_type == "Cambio % (arriba)":
                 threshold = st.number_input(
                     "Cambio porcentual (%)",
                     min_value=0.0,
                     value=5.0,
                     step=0.5
                 )
-                alert_key = "change_percent"
+                alert_key = "change_up"
+            else:  # Cambio % (abajo)
+                threshold = st.number_input(
+                    "Cambio porcentual (%)",
+                    min_value=0.0,
+                    value=5.0,
+                    step=0.5
+                )
+                alert_key = "change_down"
             
             if st.button("➕ Añadir Alerta", use_container_width=True):
                 if alert_symbol not in st.session_state.alerts:
@@ -1092,11 +1122,15 @@ NASDAQ Magnificent 7
                     with st.expander(f"{symbol}", expanded=True):
                         for key, value in configs.items():
                             if key == "upper":
-                                st.markdown(f"<span style='color: {COLORS['up']}'>📈</span> Precio arriba de: **${value:.2f}**", unsafe_allow_html=True)
+                                st.markdown(f"<span style='color: {COLORS['up']}'>▲</span> Precio arriba de: **${value:.2f}**", unsafe_allow_html=True)
                             elif key == "lower":
-                                st.markdown(f"<span style='color: {COLORS['down']}'>📉</span> Precio abajo de: **${value:.2f}**", unsafe_allow_html=True)
+                                st.markdown(f"<span style='color: {COLORS['down']}'>▼</span> Precio abajo de: **${value:.2f}**", unsafe_allow_html=True)
+                            elif key == "change_up":
+                                st.markdown(f"<span style='color: {COLORS['up']}'>▲</span> Cambio arriba de: **+{value:.1f}%**", unsafe_allow_html=True)
+                            elif key == "change_down":
+                                st.markdown(f"<span style='color: {COLORS['down']}'>▼</span> Cambio abajo de: **-{value:.1f}%**", unsafe_allow_html=True)
                             else:
-                                st.write(f"📊 Cambio mayor a: **{value:.1f}%**")
+                                st.write(f"Cambio mayor a: **±{value:.1f}%**")
                         
                         if st.button(f"🗑️ Eliminar alertas de {symbol}", key=f"del_{symbol}"):
                             del st.session_state.alerts[symbol]
@@ -1113,22 +1147,38 @@ NASDAQ Magnificent 7
                         if alert["type"] == "upper":
                             st.markdown(f"""
                             <div class="alert-up">
-                                📈 <strong>{alert['symbol']}</strong> ha superado ${alert['threshold']:.2f} 
+                                ▲ <strong>{alert['symbol']}</strong> ha superado ${alert['threshold']:.2f} 
                                 (Actual: <span style="color: {COLORS['up']}; font-weight: bold;">${alert['price']:.2f}</span>)
                             </div>
                             """, unsafe_allow_html=True)
                         elif alert["type"] == "lower":
                             st.markdown(f"""
                             <div class="alert-down">
-                                📉 <strong>{alert['symbol']}</strong> ha bajado de ${alert['threshold']:.2f} 
+                                ▼ <strong>{alert['symbol']}</strong> ha bajado de ${alert['threshold']:.2f} 
                                 (Actual: <span style="color: {COLORS['down']}; font-weight: bold;">${alert['price']:.2f}</span>)
+                            </div>
+                            """, unsafe_allow_html=True)
+                        elif alert["type"] == "change_up":
+                            st.markdown(f"""
+                            <div class="alert-up">
+                                ▲ <strong>{alert['symbol']}</strong> ha subido 
+                                <span style="color: {COLORS['up']}; font-weight: bold;">{alert['change']:+.2f}%</span>
+                                (Umbral: +{alert['threshold']:.1f}%)
+                            </div>
+                            """, unsafe_allow_html=True)
+                        elif alert["type"] == "change_down":
+                            st.markdown(f"""
+                            <div class="alert-down">
+                                ▼ <strong>{alert['symbol']}</strong> ha bajado 
+                                <span style="color: {COLORS['down']}; font-weight: bold;">{alert['change']:+.2f}%</span>
+                                (Umbral: -{alert['threshold']:.1f}%)
                             </div>
                             """, unsafe_allow_html=True)
                         else:
                             change_color = COLORS['up'] if alert['change'] >= 0 else COLORS['down']
                             st.markdown(f"""
                             <div class="{'alert-up' if alert['change'] >= 0 else 'alert-down'}">
-                                📊 <strong>{alert['symbol']}</strong> ha cambiado 
+                                <strong>{alert['symbol']}</strong> ha cambiado 
                                 <span style="color: {change_color}; font-weight: bold;">{alert['change']:.2f}%</span>
                                 (Umbral: ±{alert['threshold']:.1f}%)
                             </div>
