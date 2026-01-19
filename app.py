@@ -862,36 +862,38 @@ def main():
             use_container_width=True
         )
         
-        # Tabla de datos detallados con colores (compacta para móvil)
-        with st.expander("📋 Datos Detallados", expanded=False):
-            table_data = []
-            for symbol in selected_symbols:
-                if stock_data[symbol]:
-                    d = stock_data[symbol]
-                    change = calculate_change(d["current_price"], d["prev_close"])
-                    table_data.append({
-                        "📈": f"{MAGNIFICENT_SEVEN[symbol]['emoji']}",
-                        "Símbolo": symbol,
-                        "Precio": f"${d['current_price']:.2f}",
-                        "Cambio": change,
-                        "Cap.": format_market_cap(d["market_cap"]),
-                        "P/E": f"{d['pe_ratio']:.1f}" if d['pe_ratio'] else "-",
-                    })
+        # Tabla de datos detallados
+        st.markdown("#### 📋 Datos Detallados")
+        table_data = []
+        for symbol in selected_symbols:
+            if stock_data[symbol]:
+                d = stock_data[symbol]
+                change = calculate_change(d["current_price"], d["prev_close"])
+                table_data.append({
+                    "": MAGNIFICENT_SEVEN[symbol]['emoji'],
+                    "Símbolo": symbol,
+                    "Precio": f"${d['current_price']:.2f}",
+                    "Cambio": change,
+                    "Cap. Mercado": format_market_cap(d["market_cap"]),
+                    "P/E": f"{d['pe_ratio']:.1f}" if d['pe_ratio'] else "-",
+                    "52W Max": f"${d['52w_high']:.2f}",
+                    "52W Min": f"${d['52w_low']:.2f}",
+                })
         
-            if table_data:
-                df = pd.DataFrame(table_data)
-                
-                # Formatear la columna de cambio con colores
-                def color_change(val):
-                    if isinstance(val, (int, float)):
-                        color = COLORS["up"] if val >= 0 else COLORS["down"]
-                        return f'color: {color}; font-weight: bold'
-                    return ''
-                
-                # Mostrar dataframe con estilo
-                styled_df = df.style.applymap(color_change, subset=['Cambio'])
-                styled_df = styled_df.format({'Cambio': '{:+.2f}%'})
-                st.dataframe(styled_df, use_container_width=True, hide_index=True)
+        if table_data:
+            df = pd.DataFrame(table_data)
+            
+            # Formatear la columna de cambio con colores
+            def color_change(val):
+                if isinstance(val, (int, float)):
+                    color = COLORS["up"] if val >= 0 else COLORS["down"]
+                    return f'color: {color}; font-weight: bold'
+                return ''
+            
+            # Mostrar dataframe con estilo
+            styled_df = df.style.applymap(color_change, subset=['Cambio'])
+            styled_df = styled_df.format({'Cambio': '{:+.2f}%'})
+            st.dataframe(styled_df, use_container_width=True, hide_index=True)
     
     # TAB 2: Comparativas
     with tab2:
