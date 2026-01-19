@@ -309,6 +309,7 @@ MAGNIFICENT_SEVEN = {
 }
 
 PORTFOLIO_FILE = "portfolio.json"
+ALERTS_FILE = "alerts.json"
 
 
 def load_portfolio():
@@ -323,6 +324,20 @@ def save_portfolio(portfolio):
     """Guardar portfolio en archivo JSON"""
     with open(PORTFOLIO_FILE, 'w') as f:
         json.dump(portfolio, f, indent=2)
+
+
+def load_alerts():
+    """Cargar alertas desde archivo JSON"""
+    if os.path.exists(ALERTS_FILE):
+        with open(ALERTS_FILE, 'r') as f:
+            return json.load(f)
+    return {}
+
+
+def save_alerts(alerts):
+    """Guardar alertas en archivo JSON"""
+    with open(ALERTS_FILE, 'w') as f:
+        json.dump(alerts, f, indent=2)
 
 
 @st.cache_data(ttl=300)  # Cache de 5 minutos
@@ -741,21 +756,17 @@ def main():
     
     # TAB 2: Comparativas
     with tab2:
-        st.markdown("### 📊 Análisis Comparativo")
+        # Gráfico de comparativa de rendimiento
+        st.plotly_chart(
+            create_comparison_chart(stock_data, selected_symbols),
+            use_container_width=True
+        )
         
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.plotly_chart(
-                create_comparison_chart(stock_data, selected_symbols),
-                use_container_width=True
-            )
-        
-        with col2:
-            st.plotly_chart(
-                create_market_cap_chart(stock_data, selected_symbols),
-                use_container_width=True
-            )
+        # Gráfico de capitalización de mercado
+        st.plotly_chart(
+            create_market_cap_chart(stock_data, selected_symbols),
+            use_container_width=True
+        )
         
         # Ranking de rendimiento
         st.markdown("### 🏆 Ranking de Rendimiento")
@@ -795,9 +806,9 @@ def main():
         st.markdown("### 🔔 Sistema de Alertas")
         st.markdown("Configura alertas de precio para recibir notificaciones cuando se alcancen tus objetivos.")
         
-        # Inicializar alertas en session state
+        # Cargar alertas guardadas (persistentes)
         if "alerts" not in st.session_state:
-            st.session_state.alerts = {}
+            st.session_state.alerts = load_alerts()
         
         col1, col2 = st.columns([1, 1])
         
@@ -847,7 +858,9 @@ def main():
                 if alert_symbol not in st.session_state.alerts:
                     st.session_state.alerts[alert_symbol] = {}
                 st.session_state.alerts[alert_symbol][alert_key] = threshold
+                save_alerts(st.session_state.alerts)  # Guardar en archivo
                 st.success(f"✅ Alerta configurada para {alert_symbol}")
+                st.rerun()
         
         with col2:
             st.markdown("#### 📋 Alertas Activas")
@@ -865,6 +878,7 @@ def main():
                         
                         if st.button(f"🗑️ Eliminar alertas de {symbol}", key=f"del_{symbol}"):
                             del st.session_state.alerts[symbol]
+                            save_alerts(st.session_state.alerts)  # Guardar cambios
                             st.rerun()
                 
                 # Verificar alertas

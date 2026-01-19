@@ -2,42 +2,49 @@
   "GOOGL": [
     {
       "shares": 40.0,
-      "buy_price": 242.0,
+      "buy_price": 330.0,
       "buy_date": "2026-01-17"
     }
   ],
   "AMZN": [
     {
       "shares": 21.0,
-      "buy_price": 222.0,
+      "buy_price": 239.0,
       "buy_date": "2026-01-17"
     }
   ],
   "AAPL": [
     {
       "shares": 8.0,
-      "buy_price": 255.0,
+      "buy_price": 256.0,
       "buy_date": "2026-01-17"
     }
   ],
   "META": [
     {
       "shares": 4.0,
-      "buy_price": 719.0,
+      "buy_price": 620.0,
       "buy_date": "2026-01-17"
     }
   ],
   "MSFT": [
     {
       "shares": 11.0,
-      "buy_price": 522.0,
+      "buy_price": 460.0,
       "buy_date": "2026-01-17"
     }
   ],
   "NVDA": [
     {
       "shares": 30.0,
-      "buy_price": 194.0,
+      "buy_price": 186.0,
+      "buy_date": "2026-01-17"
+    }
+  ],
+  "TSLA": [
+    {
+      "shares": 1.0,
+      "buy_price": 438.0,
       "buy_date": "2026-01-17"
     }
   ]
