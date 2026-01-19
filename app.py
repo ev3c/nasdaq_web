@@ -518,78 +518,36 @@ MAGNIFICENT_SEVEN = {
     "TSLA": {"name": "Tesla", "emoji": "🚗", "color": "#E84545"}                # Rojo Tesla
 }
 
-import streamlit.components.v1 as components
-
-# Claves para localStorage
-PORTFOLIO_KEY = "nasdaq_portfolio"
-ALERTS_KEY = "nasdaq_alerts"
-
-
-def save_to_local_storage(key, data):
-    """Guardar datos en localStorage del navegador"""
-    json_data = json.dumps(data)
-    # Escapar caracteres especiales para JavaScript
-    escaped_data = json_data.replace('\\', '\\\\').replace("'", "\\'").replace('\n', '\\n')
-    save_script = f"""
-    <script>
-        try {{
-            localStorage.setItem('{key}', '{escaped_data}');
-        }} catch(e) {{
-            console.error('Error guardando en localStorage:', e);
-        }}
-    </script>
-    """
-    components.html(save_script, height=0)
+PORTFOLIO_FILE = "portfolio.json"
+ALERTS_FILE = "alerts.json"
 
 
 def load_portfolio():
-    """Cargar portfolio desde session_state"""
-    if "portfolio" not in st.session_state:
-        st.session_state.portfolio = {}
-    return st.session_state.portfolio
+    """Cargar portfolio desde archivo JSON"""
+    if os.path.exists(PORTFOLIO_FILE):
+        with open(PORTFOLIO_FILE, 'r') as f:
+            return json.load(f)
+    return {}
 
 
 def save_portfolio(portfolio):
-    """Guardar portfolio en session_state y localStorage"""
-    st.session_state.portfolio = portfolio
-    save_to_local_storage(PORTFOLIO_KEY, portfolio)
+    """Guardar portfolio en archivo JSON"""
+    with open(PORTFOLIO_FILE, 'w') as f:
+        json.dump(portfolio, f, indent=2)
 
 
 def load_alerts():
-    """Cargar alertas desde session_state"""
-    if "alerts" not in st.session_state:
-        st.session_state.alerts = {}
-    return st.session_state.alerts
+    """Cargar alertas desde archivo JSON"""
+    if os.path.exists(ALERTS_FILE):
+        with open(ALERTS_FILE, 'r') as f:
+            return json.load(f)
+    return {}
 
 
 def save_alerts(alerts):
-    """Guardar alertas en session_state y localStorage"""
-    st.session_state.alerts = alerts
-    save_to_local_storage(ALERTS_KEY, alerts)
-
-
-def export_data():
-    """Exportar datos de portfolio y alertas como JSON"""
-    data = {
-        "portfolio": st.session_state.get("portfolio", {}),
-        "alerts": st.session_state.get("alerts", {})
-    }
-    return json.dumps(data, indent=2)
-
-
-def import_data(json_str):
-    """Importar datos de portfolio y alertas desde JSON"""
-    try:
-        data = json.loads(json_str)
-        if "portfolio" in data:
-            st.session_state.portfolio = data["portfolio"]
-            save_to_local_storage(PORTFOLIO_KEY, data["portfolio"])
-        if "alerts" in data:
-            st.session_state.alerts = data["alerts"]
-            save_to_local_storage(ALERTS_KEY, data["alerts"])
-        return True
-    except:
-        return False
+    """Guardar alertas en archivo JSON"""
+    with open(ALERTS_FILE, 'w') as f:
+        json.dump(alerts, f, indent=2)
 
 
 @st.cache_data(ttl=300)  # Cache de 5 minutos
@@ -1303,45 +1261,6 @@ def main():
             if portfolio and st.button("Limpiar Portfolio", type="secondary"):
                 save_portfolio({})
                 st.rerun()
-        
-        # Sección de importar/exportar datos
-        st.markdown("---")
-        with st.expander("💾 Guardar/Restaurar datos", expanded=False):
-            st.markdown("""
-            **Los datos se guardan en este dispositivo.**  
-            Para transferir a otro dispositivo, exporta e importa el archivo JSON.
-            """)
-            
-            col_exp, col_imp = st.columns(2)
-            
-            with col_exp:
-                st.markdown("##### Exportar")
-                export_json = export_data()
-                st.download_button(
-                    label="📥 Descargar datos",
-                    data=export_json,
-                    file_name="nasdaq_datos.json",
-                    mime="application/json",
-                    use_container_width=True
-                )
-            
-            with col_imp:
-                st.markdown("##### Importar")
-                uploaded_file = st.file_uploader(
-                    "Subir archivo JSON",
-                    type=['json'],
-                    label_visibility="collapsed"
-                )
-                if uploaded_file is not None:
-                    try:
-                        content = uploaded_file.read().decode('utf-8')
-                        if import_data(content):
-                            st.success("Datos importados correctamente")
-                            st.rerun()
-                        else:
-                            st.error("Error al importar datos")
-                    except Exception as e:
-                        st.error(f"Error: {e}")
 
 
 if __name__ == "__main__":
