@@ -273,6 +273,41 @@ st.markdown("""
     footer {visibility: hidden;}
     header {visibility: hidden;}
     
+    /* Radio buttons horizontales como pills */
+    [data-testid="stRadio"] > div {
+        flex-wrap: wrap;
+        gap: 0.4rem;
+    }
+    
+    [data-testid="stRadio"] label {
+        background: white;
+        border: 2px solid #ECEFF1;
+        border-radius: 20px;
+        padding: 0.4rem 0.8rem;
+        font-size: 0.85rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        min-width: 40px;
+        text-align: center;
+    }
+    
+    [data-testid="stRadio"] label:hover {
+        border-color: #B39DDB;
+        background: #F3E5F5;
+    }
+    
+    [data-testid="stRadio"] label[data-checked="true"] {
+        background: linear-gradient(135deg, #B39DDB 0%, #90CAF9 100%);
+        color: white;
+        border-color: transparent;
+    }
+    
+    /* Ocultar el círculo del radio */
+    [data-testid="stRadio"] input {
+        display: none;
+    }
+    
     /* ============================================
        RESPONSIVE - MOBILE STYLES (< 768px)
        ============================================ */
@@ -336,6 +371,14 @@ st.markdown("""
             flex: 1;
             min-width: 0;
             text-align: center;
+        }
+        
+        /* Radio buttons más compactos en móvil */
+        [data-testid="stRadio"] label {
+            padding: 0.35rem 0.6rem;
+            font-size: 0.75rem;
+            min-width: 35px;
+            border-radius: 16px;
         }
         
         /* Botones más pequeños */
@@ -839,17 +882,15 @@ def main():
             "6M": "6mo", "1A": "1y", "2A": "2y", "5A": "5y"
         }
         
-        col_title, col_period = st.columns([3, 1])
-        with col_title:
-            st.markdown("#### 📈 Evolución de Precios")
-        with col_period:
-            period_price = st.selectbox(
-                "Período",
-                options=list(period_options.keys()),
-                index=2,  # 1M por defecto
-                key="period_price",
-                label_visibility="collapsed"
-            )
+        st.markdown("#### 📈 Evolución de Precios")
+        period_price = st.radio(
+            "Período",
+            options=list(period_options.keys()),
+            index=2,  # 1M por defecto
+            key="period_price",
+            horizontal=True,
+            label_visibility="collapsed"
+        )
         
         # Obtener datos con el período seleccionado
         period_value = period_options[period_price]
@@ -902,17 +943,15 @@ def main():
             "6M": "6mo", "1A": "1y", "2A": "2y", "5A": "5y"
         }
         
-        col_title_comp, col_period_comp = st.columns([3, 1])
-        with col_title_comp:
-            st.markdown("#### 📊 Comparativa de Rendimiento")
-        with col_period_comp:
-            period_comp = st.selectbox(
-                "Período",
-                options=list(period_options_comp.keys()),
-                index=2,  # 1M por defecto
-                key="period_comp",
-                label_visibility="collapsed"
-            )
+        st.markdown("#### 📊 Comparativa de Rendimiento")
+        period_comp = st.radio(
+            "Período",
+            options=list(period_options_comp.keys()),
+            index=2,  # 1M por defecto
+            key="period_comp",
+            horizontal=True,
+            label_visibility="collapsed"
+        )
         
         # Obtener datos con el período seleccionado
         period_comp_value = period_options_comp[period_comp]
