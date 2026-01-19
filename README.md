@@ -82,11 +82,40 @@ La aplicación cuenta con un diseño moderno y oscuro, optimizado para visualiza
 - Diseño responsive
 - Actualizaciones automáticas opcionales
 
+## ☁️ Despliegue en Streamlit Cloud
+
+### Pasos para desplegar
+
+1. **Sube el proyecto a GitHub**
+   - Crea un repositorio en [github.com](https://github.com)
+   - Sube todos los archivos del proyecto
+
+2. **Accede a Streamlit Cloud**
+   - Ve a [share.streamlit.io](https://share.streamlit.io)
+   - Inicia sesión con tu cuenta de GitHub
+
+3. **Despliega la app**
+   - Haz clic en "New app"
+   - Selecciona tu repositorio
+   - Branch: `main`
+   - Main file: `app.py`
+   - Haz clic en "Deploy"
+
+4. **Accede desde tu smartphone**
+   - La app estará disponible en: `https://tu-usuario-nasdaq-web.streamlit.app`
+   - Añade a la pantalla de inicio de tu móvil para acceso rápido
+
+### ⚠️ Nota importante sobre datos
+En Streamlit Cloud, los archivos `portfolio.json` y `alerts.json` **se reinician** cada vez que la app se reinicia. Para persistencia permanente, considera usar una base de datos externa (Firebase, Supabase, etc.).
+
+---
+
 ## 📝 Notas
 
 - Los datos son proporcionados por Yahoo Finance
 - La información tiene un retraso de ~15 minutos (datos gratuitos)
-- El portfolio se guarda localmente en `portfolio.json`
+- El portfolio se guarda localmente en `portfolio.json` (en modo local)
+- En Streamlit Cloud, los datos del portfolio no persisten entre reinicios
 
 ## 🛠️ Personalización
 
