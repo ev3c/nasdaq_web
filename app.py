@@ -14,6 +14,7 @@ from datetime import datetime, timedelta
 import json
 import os
 import base64
+import pytz
 
 # Configuración de la página
 st.set_page_config(
@@ -579,7 +580,24 @@ def get_stock_data(symbols, period="1mo"):
     for symbol in symbols:
         try:
             ticker = yf.Ticker(symbol)
-            hist = ticker.history(period=period)
+            
+            # Para períodos cortos, usar intervalos intradía
+            if period == "1d":
+                # Obtener datos intradía con intervalo de 5 minutos
+                hist = ticker.history(period="1d", interval="5m")
+                # Si no hay datos del día actual (mercado cerrado), obtener último día de trading
+                if len(hist) == 0:
+                    hist = ticker.history(period="5d", interval="5m")
+                    # Filtrar para mostrar solo el último día con datos
+                    if len(hist) > 0:
+                        last_date = hist.index[-1].date()
+                        hist = hist[hist.index.date == last_date]
+            elif period == "5d":
+                # Para 5 días, usar intervalo de 15 minutos
+                hist = ticker.history(period="5d", interval="15m")
+            else:
+                hist = ticker.history(period=period)
+            
             info = ticker.info
             data[symbol] = {
                 "history": hist,
@@ -621,13 +639,18 @@ def get_change_color(change):
     return COLORS["up"] if change >= 0 else COLORS["down"]
 
 
-def create_price_chart(data, symbols, title="Evolución de Precios"):
+def create_price_chart(data, symbols, title="Evolución de Precios", period="1mo"):
     """Crear gráfico de evolución de precios - Color único por acción"""
     fig = go.Figure()
     
+    has_data = False
+    reference_date = None
+    spain_tz = pytz.timezone('Europe/Madrid')
+    
     for symbol in symbols:
         if data[symbol] and len(data[symbol]["history"]) > 0:
-            hist = data[symbol]["history"]
+            has_data = True
+            hist = data[symbol]["history"].copy()
             first_price = hist['Close'].iloc[0]
             last_price = hist['Close'].iloc[-1]
             change = ((last_price - first_price) / first_price) * 100
@@ -636,16 +659,83 @@ def create_price_chart(data, symbols, title="Evolución de Precios"):
             # Indicador de subida/bajada en el nombre
             arrow = "▲" if change >= 0 else "▼"
             
+            # Convertir a hora española para períodos cortos
+            if period in ["1d", "5d"]:
+                hist.index = hist.index.tz_convert(spain_tz)
+            
+            # Guardar fecha de referencia para el rango del eje X
+            if reference_date is None and period == "1d":
+                reference_date = hist.index[-1].date()
+            
+            # Formato de hover según período
+            if period in ["1d", "5d"]:
+                hover_template = (f"<b>{symbol}</b><br>" +
+                                 "Hora: %{x|%H:%M}<br>" +
+                                 "Precio: $%{y:.2f}<extra></extra>")
+            else:
+                hover_template = (f"<b>{symbol}</b><br>" +
+                                 "Fecha: %{x|%d/%m/%Y}<br>" +
+                                 "Precio: $%{y:.2f}<extra></extra>")
+            
             fig.add_trace(go.Scatter(
                 x=hist.index,
                 y=hist['Close'],
                 mode='lines',
                 name=f"{symbol} {arrow} {change:+.1f}%",
                 line=dict(color=line_color, width=3),
-                hovertemplate=f"<b>{symbol}</b><br>" +
-                             "Fecha: %{x}<br>" +
-                             "Precio: $%{y:.2f}<extra></extra>"
+                hovertemplate=hover_template
             ))
+    
+    # Configurar formato del eje X según período
+    if period == "1d":
+        # Para 1D: mostrar rango completo 15:30-22:00 hora España
+        if reference_date:
+            # Rango en hora española
+            market_open = datetime.combine(reference_date, datetime.strptime("15:30", "%H:%M").time())
+            market_close = datetime.combine(reference_date, datetime.strptime("22:00", "%H:%M").time())
+            market_open = spain_tz.localize(market_open)
+            market_close = spain_tz.localize(market_close)
+            
+            xaxis_config = dict(
+                showgrid=True,
+                gridwidth=1,
+                gridcolor='rgba(0,0,0,0.06)',
+                tickfont=dict(color='#78909C', family='Nunito', size=9),
+                tickformat="%H:%M",
+                nticks=8,  # Número fijo de marcas para evitar overflow
+                range=[market_open, market_close],
+                fixedrange=True,  # Evitar zoom/pan que cause scroll
+                constrain='domain',
+            )
+        else:
+            xaxis_config = dict(
+                showgrid=True,
+                gridwidth=1,
+                gridcolor='rgba(0,0,0,0.06)',
+                tickfont=dict(color='#78909C', family='Nunito', size=9),
+                tickformat="%H:%M",
+                nticks=8,
+                fixedrange=True,
+                constrain='domain',
+            )
+    elif period == "5d":
+        xaxis_config = dict(
+            showgrid=True,
+            gridwidth=1,
+            gridcolor='rgba(0,0,0,0.06)',
+            tickfont=dict(color='#78909C', family='Nunito', size=9),
+            tickformat="%d/%m %H:%M",
+            nticks=10,
+            fixedrange=True,
+            constrain='domain',
+        )
+    else:
+        xaxis_config = dict(
+            showgrid=True,
+            gridwidth=1,
+            gridcolor='rgba(0,0,0,0.06)',
+            tickfont=dict(color='#78909C', family='Nunito', size=10)
+        )
     
     fig.update_layout(
         title=dict(text=title, font=dict(size=16, color='#37474F', family='Nunito')),
@@ -662,12 +752,7 @@ def create_price_chart(data, symbols, title="Evolución de Precios"):
             font=dict(color='#37474F', size=9, family='Nunito'),
             itemwidth=30
         ),
-        xaxis=dict(
-            showgrid=True,
-            gridwidth=1,
-            gridcolor='rgba(0,0,0,0.06)',
-            tickfont=dict(color='#78909C', family='Nunito', size=10)
-        ),
+        xaxis=xaxis_config,
         yaxis=dict(
             showgrid=True,
             gridwidth=1,
@@ -679,19 +764,43 @@ def create_price_chart(data, symbols, title="Evolución de Precios"):
         autosize=True
     )
     
+    # Mensaje si no hay datos
+    if not has_data:
+        fig.add_annotation(
+            text="No hay datos disponibles para este período.<br>El mercado NASDAQ opera de 15:30 a 22:00 (hora España).",
+            xref="paper", yref="paper",
+            x=0.5, y=0.5,
+            showarrow=False,
+            font=dict(size=14, color='#78909C'),
+            align="center"
+        )
+    
     return fig
 
 
-def create_comparison_chart(data, symbols):
+def create_comparison_chart(data, symbols, period="1mo"):
     """Crear gráfico de comparación normalizado - Color único por acción"""
     fig = go.Figure()
     
+    has_data = False
+    reference_date = None
+    spain_tz = pytz.timezone('Europe/Madrid')
+    
     for symbol in symbols:
         if data[symbol] and len(data[symbol]["history"]) > 0:
-            hist = data[symbol]["history"]
+            has_data = True
+            hist = data[symbol]["history"].copy()
             # Normalizar a porcentaje desde el inicio
             normalized = (hist['Close'] / hist['Close'].iloc[0] - 1) * 100
             final_change = normalized.iloc[-1]
+            
+            # Convertir a hora española para períodos cortos
+            if period in ["1d", "5d"]:
+                hist.index = hist.index.tz_convert(spain_tz)
+            
+            # Guardar fecha de referencia para el rango del eje X
+            if reference_date is None and period == "1d":
+                reference_date = hist.index[-1].date()
             
             # Usar el color único de cada acción
             line_color = MAGNIFICENT_SEVEN[symbol]['color']
@@ -702,6 +811,16 @@ def create_comparison_chart(data, symbols):
             
             arrow = "▲" if final_change >= 0 else "▼"
             
+            # Formato de hover según período
+            if period in ["1d", "5d"]:
+                hover_template = (f"<b>{symbol}</b><br>" +
+                                 "Hora: %{x|%H:%M}<br>" +
+                                 "Cambio: %{y:.2f}%<extra></extra>")
+            else:
+                hover_template = (f"<b>{symbol}</b><br>" +
+                                 "Fecha: %{x|%d/%m/%Y}<br>" +
+                                 "Cambio: %{y:.2f}%<extra></extra>")
+            
             fig.add_trace(go.Scatter(
                 x=hist.index,
                 y=normalized,
@@ -710,10 +829,59 @@ def create_comparison_chart(data, symbols):
                 line=dict(color=line_color, width=3),
                 fill='tozeroy',
                 fillcolor=fill_color,
-                hovertemplate=f"<b>{symbol}</b><br>" +
-                             "Fecha: %{x}<br>" +
-                             "Cambio: %{y:.2f}%<extra></extra>"
+                hovertemplate=hover_template
             ))
+    
+    # Configurar formato del eje X según período
+    if period == "1d":
+        # Para 1D: mostrar rango completo 15:30-22:00 hora España
+        if reference_date:
+            # Rango en hora española
+            market_open = datetime.combine(reference_date, datetime.strptime("15:30", "%H:%M").time())
+            market_close = datetime.combine(reference_date, datetime.strptime("22:00", "%H:%M").time())
+            market_open = spain_tz.localize(market_open)
+            market_close = spain_tz.localize(market_close)
+            
+            xaxis_config = dict(
+                showgrid=True,
+                gridwidth=1,
+                gridcolor='rgba(0,0,0,0.06)',
+                tickfont=dict(color='#78909C', family='Nunito', size=9),
+                tickformat="%H:%M",
+                nticks=8,
+                range=[market_open, market_close],
+                fixedrange=True,
+                constrain='domain',
+            )
+        else:
+            xaxis_config = dict(
+                showgrid=True,
+                gridwidth=1,
+                gridcolor='rgba(0,0,0,0.06)',
+                tickfont=dict(color='#78909C', family='Nunito', size=9),
+                tickformat="%H:%M",
+                nticks=8,
+                fixedrange=True,
+                constrain='domain',
+            )
+    elif period == "5d":
+        xaxis_config = dict(
+            showgrid=True,
+            gridwidth=1,
+            gridcolor='rgba(0,0,0,0.06)',
+            tickfont=dict(color='#78909C', family='Nunito', size=9),
+            tickformat="%d/%m %H:%M",
+            nticks=10,
+            fixedrange=True,
+            constrain='domain',
+        )
+    else:
+        xaxis_config = dict(
+            showgrid=True,
+            gridwidth=1,
+            gridcolor='rgba(0,0,0,0.06)',
+            tickfont=dict(color='#78909C', family='Nunito', size=10)
+        )
     
     fig.update_layout(
         title=dict(text="📊 Comparativa (%)", font=dict(size=16, color='#37474F', family='Nunito')),
@@ -730,12 +898,7 @@ def create_comparison_chart(data, symbols):
             font=dict(color='#37474F', size=9, family='Nunito'),
             itemwidth=30
         ),
-        xaxis=dict(
-            showgrid=True,
-            gridwidth=1,
-            gridcolor='rgba(0,0,0,0.06)',
-            tickfont=dict(color='#78909C', family='Nunito', size=10)
-        ),
+        xaxis=xaxis_config,
         yaxis=dict(
             showgrid=True,
             gridwidth=1,
@@ -749,6 +912,17 @@ def create_comparison_chart(data, symbols):
         margin=dict(l=10, r=10, t=50, b=10),
         autosize=True
     )
+    
+    # Mensaje si no hay datos
+    if not has_data:
+        fig.add_annotation(
+            text="No hay datos disponibles para este período.<br>El mercado NASDAQ opera de 15:30 a 22:00 (hora España).",
+            xref="paper", yref="paper",
+            x=0.5, y=0.5,
+            showarrow=False,
+            font=dict(size=14, color='#78909C'),
+            align="center"
+        )
     
     return fig
 
@@ -1060,7 +1234,7 @@ def main():
         
         # Gráfico de precios
         st.plotly_chart(
-            create_price_chart(chart_data, selected_symbols, ""),
+            create_price_chart(chart_data, selected_symbols, "", period_value),
             use_container_width=True
         )
         
@@ -1121,7 +1295,7 @@ def main():
         
         # Gráfico de comparativa de rendimiento
         st.plotly_chart(
-            create_comparison_chart(comp_data, selected_symbols),
+            create_comparison_chart(comp_data, selected_symbols, period_comp_value),
             use_container_width=True
         )
         
