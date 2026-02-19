@@ -15,7 +15,6 @@ import json
 import os
 import base64
 import pytz
-import calendar
 
 # Configuración de la página
 st.set_page_config(
@@ -2079,81 +2078,43 @@ def main():
             if "selected_history_date" not in st.session_state:
                 st.session_state.selected_history_date = available_dates[0] if available_dates else None
             
-            # En móvil: calendario arriba, datos abajo
-            # En desktop: calendario izquierda, datos derecha
-            col_cal1, col_cal2 = st.columns([1, 1.5])
+            # Layout simple: selector de fecha y datos
+            col_cal1, col_cal2 = st.columns([1, 2])
             
             with col_cal1:
-                # Contenedor del calendario con estilos
-                st.markdown('<div class="calendar-container">', unsafe_allow_html=True)
-                
-                # Navegación del mes
-                st.markdown('<div class="calendar-nav">', unsafe_allow_html=True)
-                nav_col1, nav_col2, nav_col3 = st.columns([1, 2.5, 1])
-                with nav_col1:
-                    if st.button("◀", key="prev_month", use_container_width=True):
-                        if st.session_state.cal_month == 1:
-                            st.session_state.cal_month = 12
-                            st.session_state.cal_year -= 1
-                        else:
-                            st.session_state.cal_month -= 1
-                        st.rerun()
-                
-                with nav_col2:
-                    months_es = ["", "Ene", "Feb", "Mar", "Abr", "May", "Jun",
-                                 "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
-                    st.markdown(f"<div style='text-align:center;font-weight:700;color:#37474F;padding:4px;font-size:0.9rem;'>{months_es[st.session_state.cal_month]} {st.session_state.cal_year}</div>", unsafe_allow_html=True)
-                
-                with nav_col3:
-                    if st.button("▶", key="next_month", use_container_width=True):
-                        if st.session_state.cal_month == 12:
-                            st.session_state.cal_month = 1
-                            st.session_state.cal_year += 1
-                        else:
-                            st.session_state.cal_month += 1
-                        st.rerun()
-                st.markdown('</div>', unsafe_allow_html=True)
-                
-                # Crear calendario visual
-                cal = calendar.Calendar(firstweekday=0)
-                month_days = cal.monthdayscalendar(st.session_state.cal_year, st.session_state.cal_month)
-                
-                # Cabecera días de la semana
-                st.markdown('<div class="calendar-weekdays">' + 
-                    ''.join([f"<div>{d}</div>" for d in ["L", "M", "X", "J", "V", "S", "D"]]) + 
-                    '</div>', unsafe_allow_html=True)
-                
-                # Días del mes
+                # Selector de fecha simple y compatible con móviles
                 today = datetime.now().date()
-                st.markdown('<div class="calendar-days">', unsafe_allow_html=True)
-                for week in month_days:
-                    cols = st.columns(7, gap="small")
-                    for i, day in enumerate(week):
-                        with cols[i]:
-                            if day == 0:
-                                st.markdown("<div style='height:32px;'></div>", unsafe_allow_html=True)
-                            else:
-                                date_str = f"{st.session_state.cal_year}-{st.session_state.cal_month:02d}-{day:02d}"
-                                date_obj = datetime.strptime(date_str, "%Y-%m-%d").date()
-                                has_saved_data = date_str in available_dates_set
-                                is_selected = date_str == st.session_state.selected_history_date
-                                is_future = date_obj > today
-                                
-                                if is_future:
-                                    st.markdown(f"<div style='text-align:center;color:#E0E0E0;padding:6px 2px;font-size:0.8rem;height:32px;'>{day}</div>", unsafe_allow_html=True)
-                                else:
-                                    btn_type = "primary" if is_selected else "secondary"
-                                    
-                                    if st.button(
-                                        str(day), 
-                                        key=f"day_{date_str}",
-                                        type=btn_type,
-                                        use_container_width=True
-                                    ):
-                                        st.session_state.selected_history_date = date_str
-                                        st.rerun()
-                st.markdown('</div>', unsafe_allow_html=True)
-                st.markdown('</div>', unsafe_allow_html=True)
+                
+                # Usar date_input nativo (abre calendario nativo en móviles)
+                selected_date = st.date_input(
+                    "📅 Fecha",
+                    value=datetime.strptime(st.session_state.selected_history_date, "%Y-%m-%d").date() if st.session_state.selected_history_date else today,
+                    max_value=today,
+                    key="simple_date_picker",
+                    format="DD/MM/YYYY"
+                )
+                
+                # Actualizar estado
+                st.session_state.selected_history_date = selected_date.strftime("%Y-%m-%d")
+                
+                # Botones rápidos para fechas comunes
+                st.markdown("<div style='margin-top:8px;'>", unsafe_allow_html=True)
+                qc1, qc2, qc3 = st.columns(3)
+                with qc1:
+                    if st.button("Hoy", key="quick_today", use_container_width=True):
+                        st.session_state.selected_history_date = today.strftime("%Y-%m-%d")
+                        st.rerun()
+                with qc2:
+                    yesterday = today - timedelta(days=1)
+                    if st.button("Ayer", key="quick_yesterday", use_container_width=True):
+                        st.session_state.selected_history_date = yesterday.strftime("%Y-%m-%d")
+                        st.rerun()
+                with qc3:
+                    week_ago = today - timedelta(days=7)
+                    if st.button("-7 días", key="quick_week", use_container_width=True):
+                        st.session_state.selected_history_date = week_ago.strftime("%Y-%m-%d")
+                        st.rerun()
+                st.markdown("</div>", unsafe_allow_html=True)
             
             # Obtener datos de la fecha seleccionada
             selected_date_str = st.session_state.selected_history_date
