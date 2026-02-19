@@ -2184,14 +2184,10 @@ def main():
                                 valid_data = True
                                 
                                 for pos in positions:
-                                    pos_date = datetime.strptime(pos["buy_date"], "%Y-%m-%d").date()
-                                    sel_date = datetime.strptime(selected_date_str, "%Y-%m-%d").date()
-                                    
-                                    # Solo incluir posiciones compradas antes o en la fecha seleccionada
-                                    if pos_date <= sel_date:
-                                        hist_invested += pos["shares"] * pos["buy_price"]
-                                        hist_value += pos["shares"] * price_data["close"]
-                                        hist_prev_value += pos["shares"] * price_data["prev_close"]
+                                    # Calcular con todas las posiciones del portfolio actual
+                                    hist_invested += pos["shares"] * pos["buy_price"]
+                                    hist_value += pos["shares"] * price_data["close"]
+                                    hist_prev_value += pos["shares"] * price_data["prev_close"]
                         
                         if valid_data and hist_invested > 0:
                             hist_gain = hist_value - hist_invested
@@ -2243,7 +2239,7 @@ def main():
                                         arrow = "▲" if change >= 0 else "▼"
                                         st.markdown(f"**{symbol}**: ${price:.2f} <span style='color:{change_color};'>{arrow} {change:+.2f}%</span>", unsafe_allow_html=True)
                         else:
-                            st.warning("No tenías posiciones en el portfolio para esta fecha.")
+                            st.warning("No se pudieron obtener datos de precios para esta fecha.")
                     else:
                         st.info("Añade posiciones al portfolio para ver el histórico.")
                 else:
