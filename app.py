@@ -15,6 +15,7 @@ import json
 import os
 import base64
 import pytz
+import calendar
 
 # Configuración de la página
 st.set_page_config(
@@ -311,6 +312,19 @@ st.markdown("""
         display: none;
     }
     
+    /* Botones de período más compactos */
+    .period-selector [data-testid="stRadio"] > div {
+        gap: 0.25rem;
+    }
+    
+    .period-selector [data-testid="stRadio"] label {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.75rem;
+        min-width: 32px;
+        border-radius: 14px;
+        border-width: 1.5px;
+    }
+    
     /* ============================================
        RESPONSIVE - MOBILE STYLES (< 768px)
        ============================================ */
@@ -382,6 +396,14 @@ st.markdown("""
             font-size: 0.75rem;
             min-width: 35px;
             border-radius: 16px;
+        }
+        
+        /* Botones de período aún más pequeños en móvil */
+        .period-selector [data-testid="stRadio"] label {
+            padding: 0.2rem 0.4rem;
+            font-size: 0.65rem;
+            min-width: 28px;
+            border-radius: 12px;
         }
         
         /* Botones más pequeños */
@@ -523,6 +545,7 @@ MAGNIFICENT_SEVEN = {
 
 PORTFOLIO_FILE = "portfolio.json"
 ALERTS_FILE = "alerts.json"
+PORTFOLIO_HISTORY_FILE = "portfolio_history.json"
 
 
 def load_portfolio():
@@ -537,6 +560,38 @@ def save_portfolio(portfolio):
     """Guardar portfolio en archivo JSON"""
     with open(PORTFOLIO_FILE, 'w') as f:
         json.dump(portfolio, f, indent=2)
+
+
+def load_portfolio_history():
+    """Cargar histórico del portfolio desde archivo JSON"""
+    if os.path.exists(PORTFOLIO_HISTORY_FILE):
+        with open(PORTFOLIO_HISTORY_FILE, 'r') as f:
+            return json.load(f)
+    return {}
+
+
+def save_portfolio_history(history):
+    """Guardar histórico del portfolio en archivo JSON"""
+    with open(PORTFOLIO_HISTORY_FILE, 'w') as f:
+        json.dump(history, f, indent=2)
+
+
+def save_daily_snapshot(total_invested, total_current, total_gain, total_gain_pct, daily_gain, daily_pct):
+    """Guardar snapshot diario del portfolio"""
+    today = datetime.now().strftime("%Y-%m-%d")
+    history = load_portfolio_history()
+    
+    history[today] = {
+        "invested": total_invested,
+        "current_value": total_current,
+        "total_gain": total_gain,
+        "total_gain_pct": total_gain_pct,
+        "daily_gain": daily_gain,
+        "daily_gain_pct": daily_pct,
+        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    }
+    
+    save_portfolio_history(history)
 
 
 def load_alerts():
@@ -621,6 +676,43 @@ def calculate_change(current, previous):
     if previous and previous != 0:
         return ((current - previous) / previous) * 100
     return 0
+
+
+@st.cache_data(ttl=3600)
+def get_historical_prices(symbols, target_date):
+    """Obtener precios de cierre históricos para una fecha específica"""
+    prices = {}
+    target = datetime.strptime(target_date, "%Y-%m-%d")
+    start_date = target - timedelta(days=5)
+    end_date = target + timedelta(days=1)
+    
+    for symbol in symbols:
+        try:
+            ticker = yf.Ticker(symbol)
+            hist = ticker.history(start=start_date.strftime("%Y-%m-%d"), end=end_date.strftime("%Y-%m-%d"))
+            
+            if len(hist) > 0:
+                hist.index = hist.index.tz_localize(None) if hist.index.tz else hist.index
+                target_prices = hist[hist.index.date <= target.date()]
+                
+                if len(target_prices) > 0:
+                    close_price = target_prices['Close'].iloc[-1]
+                    prev_close = target_prices['Close'].iloc[-2] if len(target_prices) > 1 else close_price
+                    actual_date = target_prices.index[-1].strftime("%Y-%m-%d")
+                    
+                    prices[symbol] = {
+                        "close": close_price,
+                        "prev_close": prev_close,
+                        "actual_date": actual_date
+                    }
+                else:
+                    prices[symbol] = None
+            else:
+                prices[symbol] = None
+        except Exception as e:
+            prices[symbol] = None
+    
+    return prices
 
 
 def format_market_cap(value):
@@ -1054,9 +1146,12 @@ def main():
     with st.spinner("📡 Obteniendo datos del mercado..."):
         stock_data = get_stock_data(selected_symbols, "1mo")
     
-    # Inicializar estado de pestaña activa
+    # Inicializar estado de pestaña activa y período seleccionado
     if "active_tab" not in st.session_state:
         st.session_state.active_tab = "📊 Dashboard"
+    
+    if "selected_period" not in st.session_state:
+        st.session_state.selected_period = "1M"  # Por defecto 1 mes
     
     # Navegación por pestañas (mantiene el estado)
     tabs_options = ["📊 Dashboard", "📈 Comparativas", "🔔 Alertas", "💰 Portfolio"]
@@ -1094,25 +1189,33 @@ def main():
     if "sound_enabled" not in st.session_state:
         st.session_state.sound_enabled = False
     
-    # CSS para botón de sonido pequeño
+    # CSS para botón de sonido pequeño y centrado
     st.markdown("""
     <style>
-    [data-testid="stButton"][data-testid-key="toggle_sound"] button {
-        padding: 2px 10px !important;
-        min-height: 28px !important;
-        font-size: 0.9rem !important;
+    .sound-button-container {
+        display: flex;
+        justify-content: center;
+        margin: 0.3rem 0;
+    }
+    .sound-button-container [data-testid="stButton"] button {
+        padding: 4px 16px !important;
+        min-height: 32px !important;
+        font-size: 0.85rem !important;
         white-space: nowrap !important;
     }
     </style>
     """, unsafe_allow_html=True)
     
-    col_check, col_countdown, col_sound, col_space = st.columns([1.1, 0.35, 0.6, 3.95])
+    # Fila 1: Auto-refresh y countdown
+    col_check, col_countdown, col_space = st.columns([1.1, 0.35, 4.55])
     
     with col_check:
         auto_refresh = st.checkbox("🔄 Actualizar cada 5 minutos", value=auto_refresh_default, key="auto_refresh")
     
+    # Fila 2: Botón de sonido alineado a la derecha
+    col_space, col_sound = st.columns([4, 1])
     with col_sound:
-        if st.button("🔊 ON" if st.session_state.sound_enabled else "🔇 OFF", key="toggle_sound"):
+        if st.button("🔊 ON" if st.session_state.sound_enabled else "🔇 OFF", key="toggle_sound", use_container_width=True):
             st.session_state.sound_enabled = not st.session_state.sound_enabled
             if st.session_state.sound_enabled:
                 # Reproducir beep de prueba para activar el audio
@@ -1218,14 +1321,21 @@ def main():
         }
         
         st.markdown("#### 📈 Evolución de Precios")
+        
+        # Contenedor con clase para estilos compactos
+        st.markdown('<div class="period-selector">', unsafe_allow_html=True)
         period_price = st.radio(
             "Período",
             options=list(period_options.keys()),
-            index=2,  # 1M por defecto
+            index=list(period_options.keys()).index(st.session_state.selected_period),
             key="period_price",
             horizontal=True,
             label_visibility="collapsed"
         )
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+        # Guardar período seleccionado
+        st.session_state.selected_period = period_price
         
         # Obtener datos con el período seleccionado
         period_value = period_options[period_price]
@@ -1272,21 +1382,28 @@ def main():
     
     # TAB 2: Comparativas
     if selected_tab == "📈 Comparativas":
-        # Selector de período para comparativas
+        # Selector de período para comparativas (usa el mismo período que Dashboard)
         period_options_comp = {
             "1D": "1d", "5D": "5d", "1M": "1mo", "3M": "3mo", 
             "6M": "6mo", "1A": "1y", "2A": "2y", "5A": "5y"
         }
         
         st.markdown("#### 📊 Comparativa de Rendimiento")
+        
+        # Contenedor con clase para estilos compactos
+        st.markdown('<div class="period-selector">', unsafe_allow_html=True)
         period_comp = st.radio(
             "Período",
             options=list(period_options_comp.keys()),
-            index=2,  # 1M por defecto
+            index=list(period_options_comp.keys()).index(st.session_state.selected_period),
             key="period_comp",
             horizontal=True,
             label_visibility="collapsed"
         )
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+        # Guardar período seleccionado
+        st.session_state.selected_period = period_comp
         
         # Obtener datos con el período seleccionado
         period_comp_value = period_options_comp[period_comp]
@@ -1702,22 +1819,30 @@ def main():
             if portfolio:
                 total_invested = 0
                 total_current = 0
+                total_prev_value = 0  # Valor al cierre anterior
                 portfolio_details = []
                 
                 for symbol, positions in portfolio.items():
                     if symbol in MAGNIFICENT_SEVEN:
-                        current_price = stock_data.get(symbol, {})
-                        if current_price and current_price.get("current_price"):
-                            curr_price = current_price["current_price"]
+                        stock_info = stock_data.get(symbol, {})
+                        if stock_info and stock_info.get("current_price"):
+                            curr_price = stock_info["current_price"]
+                            prev_close = stock_info.get("prev_close", curr_price)
                             
                             for pos in positions:
                                 invested = pos["shares"] * pos["buy_price"]
                                 current = pos["shares"] * curr_price
+                                prev_value = pos["shares"] * prev_close
                                 gain = current - invested
                                 gain_pct = (gain / invested) * 100 if invested > 0 else 0
                                 
+                                # Ganancia del día
+                                daily_gain = current - prev_value
+                                daily_gain_pct = ((curr_price - prev_close) / prev_close) * 100 if prev_close > 0 else 0
+                                
                                 total_invested += invested
                                 total_current += current
+                                total_prev_value += prev_value
                                 
                                 portfolio_details.append({
                                     "Símbolo": symbol,
@@ -1727,21 +1852,33 @@ def main():
                                     "Invertido": invested,
                                     "Valor": current,
                                     "Ganancia": gain,
-                                    "Rend. %": gain_pct
+                                    "Rend. %": gain_pct,
+                                    "Día $": daily_gain,
+                                    "Día %": daily_gain_pct
                                 })
                 
                 if portfolio_details:
                     # Métricas generales con colores
                     total_gain = total_current - total_invested
                     total_gain_pct = (total_gain / total_invested) * 100 if total_invested > 0 else 0
+                    total_daily_gain = total_current - total_prev_value
+                    total_daily_pct = (total_daily_gain / total_prev_value) * 100 if total_prev_value > 0 else 0
                     
-                    m1, m2, m3 = st.columns(3)
+                    # Guardar snapshot diario
+                    save_daily_snapshot(
+                        total_invested, total_current, total_gain, 
+                        total_gain_pct, total_daily_gain, total_daily_pct
+                    )
+                    
+                    m1, m2, m3, m4 = st.columns(4)
                     with m1:
                         st.metric("Invertido", f"${total_invested:,.2f}")
                     with m2:
                         st.metric("Valor Actual", f"${total_current:,.2f}")
                     with m3:
-                        st.metric("Ganancia", f"${total_gain:+,.2f}", f"{total_gain_pct:+.2f}%")
+                        st.metric("Ganancia Total", f"${total_gain:+,.2f}", f"{total_gain_pct:+.2f}%")
+                    with m4:
+                        st.metric("Hoy", f"${total_daily_gain:+,.2f}", f"{total_daily_pct:+.2f}%")
                     
                     st.markdown("---")
                     
@@ -1749,7 +1886,7 @@ def main():
                     df = pd.DataFrame(portfolio_details)
                     
                     def style_gains(val, col):
-                        if col in ['Ganancia', 'Rend. %']:
+                        if col in ['Ganancia', 'Rend. %', 'Día $', 'Día %']:
                             color = COLORS["up"] if val >= 0 else COLORS["down"]
                             return f'color: {color}; font-weight: bold'
                         return ''
@@ -1762,7 +1899,9 @@ def main():
                         'Invertido': '${:.2f}',
                         'Valor': '${:.2f}',
                         'Ganancia': '${:+.2f}',
-                        'Rend. %': '{:+.2f}%'
+                        'Rend. %': '{:+.2f}%',
+                        'Día $': '${:+.2f}',
+                        'Día %': '{:+.2f}%'
                     })
                     
                     st.dataframe(styled_df, use_container_width=True, hide_index=True)
@@ -1804,6 +1943,245 @@ def main():
             if portfolio and st.button("Limpiar Portfolio", type="secondary"):
                 save_portfolio({})
                 st.toast("Portfolio limpiado")
+        
+        # Histórico mensual del Portfolio
+        st.markdown("---")
+        st.markdown("### 📅 Histórico del Portfolio")
+        
+        portfolio_history = load_portfolio_history()
+        
+        if portfolio_history:
+            # Obtener fechas disponibles
+            available_dates = sorted(portfolio_history.keys(), reverse=True)
+            available_dates_set = set(available_dates)
+            
+            # Inicializar mes/año seleccionado
+            if "cal_year" not in st.session_state:
+                st.session_state.cal_year = datetime.now().year
+            if "cal_month" not in st.session_state:
+                st.session_state.cal_month = datetime.now().month
+            if "selected_history_date" not in st.session_state:
+                st.session_state.selected_history_date = available_dates[0] if available_dates else None
+            
+            col_cal1, col_cal2 = st.columns([1.2, 1.8])
+            
+            with col_cal1:
+                # Navegación del mes
+                nav_col1, nav_col2, nav_col3 = st.columns([1, 2, 1])
+                with nav_col1:
+                    if st.button("◀", key="prev_month", use_container_width=True):
+                        if st.session_state.cal_month == 1:
+                            st.session_state.cal_month = 12
+                            st.session_state.cal_year -= 1
+                        else:
+                            st.session_state.cal_month -= 1
+                        st.rerun()
+                
+                with nav_col2:
+                    months_es = ["", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+                                 "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
+                    st.markdown(f"<div style='text-align:center;font-weight:700;color:#37474F;padding:8px;'>{months_es[st.session_state.cal_month]} {st.session_state.cal_year}</div>", unsafe_allow_html=True)
+                
+                with nav_col3:
+                    if st.button("▶", key="next_month", use_container_width=True):
+                        if st.session_state.cal_month == 12:
+                            st.session_state.cal_month = 1
+                            st.session_state.cal_year += 1
+                        else:
+                            st.session_state.cal_month += 1
+                        st.rerun()
+                
+                # Crear calendario visual
+                cal = calendar.Calendar(firstweekday=0)
+                month_days = cal.monthdayscalendar(st.session_state.cal_year, st.session_state.cal_month)
+                
+                # Cabecera días de la semana
+                days_header = "<div style='display:grid;grid-template-columns:repeat(7,1fr);gap:2px;text-align:center;margin-bottom:4px;'>"
+                for day_name in ["L", "M", "X", "J", "V", "S", "D"]:
+                    days_header += f"<div style='font-weight:700;color:#78909C;font-size:0.75rem;padding:4px;'>{day_name}</div>"
+                days_header += "</div>"
+                st.markdown(days_header, unsafe_allow_html=True)
+                
+                # Días del mes
+                today = datetime.now().date()
+                for week in month_days:
+                    cols = st.columns(7)
+                    for i, day in enumerate(week):
+                        with cols[i]:
+                            if day == 0:
+                                st.write("")
+                            else:
+                                date_str = f"{st.session_state.cal_year}-{st.session_state.cal_month:02d}-{day:02d}"
+                                date_obj = datetime.strptime(date_str, "%Y-%m-%d").date()
+                                has_saved_data = date_str in available_dates_set
+                                is_selected = date_str == st.session_state.selected_history_date
+                                is_future = date_obj > today
+                                is_weekend = date_obj.weekday() >= 5
+                                
+                                if is_future:
+                                    # Día futuro - no clickeable
+                                    st.markdown(f"<div style='text-align:center;color:#E0E0E0;padding:8px;font-size:0.85rem;'>{day}</div>", unsafe_allow_html=True)
+                                else:
+                                    # Día pasado o presente - clickeable
+                                    if is_selected:
+                                        btn_type = "primary"
+                                    elif has_saved_data:
+                                        btn_type = "secondary"
+                                    else:
+                                        btn_type = "secondary"
+                                    
+                                    if st.button(
+                                        str(day), 
+                                        key=f"day_{date_str}",
+                                        type=btn_type,
+                                        use_container_width=True
+                                    ):
+                                        st.session_state.selected_history_date = date_str
+                                        st.rerun()
+            
+            # Obtener datos de la fecha seleccionada
+            selected_date_str = st.session_state.selected_history_date
+            
+            with col_cal2:
+                if selected_date_str and portfolio:
+                    st.markdown(f"**📆 Datos del {selected_date_str}**")
+                    
+                    # Obtener precios históricos de Internet
+                    portfolio_symbols = [s for s in portfolio.keys() if s in MAGNIFICENT_SEVEN]
+                    
+                    if portfolio_symbols:
+                        with st.spinner("📡 Obteniendo datos históricos..."):
+                            historical_prices = get_historical_prices(portfolio_symbols, selected_date_str)
+                        
+                        # Calcular valores del portfolio para esa fecha
+                        hist_invested = 0
+                        hist_value = 0
+                        hist_prev_value = 0
+                        actual_date_shown = None
+                        valid_data = False
+                        
+                        for symbol, positions in portfolio.items():
+                            if symbol in historical_prices and historical_prices[symbol]:
+                                price_data = historical_prices[symbol]
+                                actual_date_shown = price_data["actual_date"]
+                                valid_data = True
+                                
+                                for pos in positions:
+                                    pos_date = datetime.strptime(pos["buy_date"], "%Y-%m-%d").date()
+                                    sel_date = datetime.strptime(selected_date_str, "%Y-%m-%d").date()
+                                    
+                                    # Solo incluir posiciones compradas antes o en la fecha seleccionada
+                                    if pos_date <= sel_date:
+                                        hist_invested += pos["shares"] * pos["buy_price"]
+                                        hist_value += pos["shares"] * price_data["close"]
+                                        hist_prev_value += pos["shares"] * price_data["prev_close"]
+                        
+                        if valid_data and hist_invested > 0:
+                            hist_gain = hist_value - hist_invested
+                            hist_gain_pct = (hist_gain / hist_invested) * 100
+                            hist_daily = hist_value - hist_prev_value
+                            hist_daily_pct = (hist_daily / hist_prev_value) * 100 if hist_prev_value > 0 else 0
+                            
+                            if actual_date_shown and actual_date_shown != selected_date_str:
+                                st.caption(f"📍 Datos del día de mercado más cercano: {actual_date_shown}")
+                            
+                            hm1, hm2 = st.columns(2)
+                            with hm1:
+                                st.metric("💵 Invertido", f"${hist_invested:,.2f}")
+                                gain_color = COLORS["up"] if hist_gain >= 0 else COLORS["down"]
+                                st.markdown(f"""
+                                <div style="background:white;padding:10px;border-radius:10px;border:1px solid #ECEFF1;margin-top:8px;">
+                                    <span style="color:#78909C;font-size:0.85rem;">📈 Ganancia Total</span><br>
+                                    <span style="font-family:'IBM Plex Mono',monospace;font-size:1.1rem;font-weight:600;color:{gain_color};">
+                                        ${hist_gain:+,.2f} ({hist_gain_pct:+.2f}%)
+                                    </span>
+                                </div>
+                                """, unsafe_allow_html=True)
+                            
+                            with hm2:
+                                st.metric("💰 Valor", f"${hist_value:,.2f}")
+                                daily_color = COLORS["up"] if hist_daily >= 0 else COLORS["down"]
+                                st.markdown(f"""
+                                <div style="background:white;padding:10px;border-radius:10px;border:1px solid #ECEFF1;margin-top:8px;">
+                                    <span style="color:#78909C;font-size:0.85rem;">📊 Cambio del Día</span><br>
+                                    <span style="font-family:'IBM Plex Mono',monospace;font-size:1.1rem;font-weight:600;color:{daily_color};">
+                                        ${hist_daily:+,.2f} ({hist_daily_pct:+.2f}%)
+                                    </span>
+                                </div>
+                                """, unsafe_allow_html=True)
+                            
+                            # Mostrar detalle por acción
+                            with st.expander("📋 Detalle por acción"):
+                                for symbol in portfolio_symbols:
+                                    if symbol in historical_prices and historical_prices[symbol]:
+                                        price = historical_prices[symbol]["close"]
+                                        prev = historical_prices[symbol]["prev_close"]
+                                        change = ((price - prev) / prev) * 100 if prev > 0 else 0
+                                        change_color = COLORS["up"] if change >= 0 else COLORS["down"]
+                                        arrow = "▲" if change >= 0 else "▼"
+                                        st.markdown(f"**{symbol}**: ${price:.2f} <span style='color:{change_color};'>{arrow} {change:+.2f}%</span>", unsafe_allow_html=True)
+                        else:
+                            st.warning("No tenías posiciones en el portfolio para esta fecha.")
+                    else:
+                        st.info("Añade posiciones al portfolio para ver el histórico.")
+                else:
+                    st.info("Selecciona un día en el calendario para ver los datos.")
+            
+            # Gráfico de evolución del portfolio
+            if len(portfolio_history) > 1:
+                st.markdown("#### 📊 Evolución del Valor del Portfolio")
+                
+                # Preparar datos para el gráfico
+                dates = []
+                values = []
+                gains = []
+                
+                for date_str in sorted(portfolio_history.keys()):
+                    dates.append(datetime.strptime(date_str, "%Y-%m-%d"))
+                    values.append(portfolio_history[date_str]["current_value"])
+                    gains.append(portfolio_history[date_str]["total_gain"])
+                
+                fig_history = go.Figure()
+                
+                # Línea de valor del portfolio
+                fig_history.add_trace(go.Scatter(
+                    x=dates,
+                    y=values,
+                    mode='lines+markers',
+                    name='Valor Portfolio',
+                    line=dict(color='#B39DDB', width=3),
+                    marker=dict(size=8, color='#B39DDB'),
+                    fill='tozeroy',
+                    fillcolor='rgba(179, 157, 219, 0.2)',
+                    hovertemplate="Fecha: %{x|%d/%m/%Y}<br>Valor: $%{y:,.2f}<extra></extra>"
+                ))
+                
+                fig_history.update_layout(
+                    template='plotly_white',
+                    paper_bgcolor='rgba(255,255,255,0)',
+                    plot_bgcolor='rgba(253,246,240,0.5)',
+                    hovermode='x unified',
+                    xaxis=dict(
+                        showgrid=True,
+                        gridwidth=1,
+                        gridcolor='rgba(0,0,0,0.06)',
+                        tickfont=dict(color='#78909C', family='Nunito', size=10),
+                        tickformat="%d/%m"
+                    ),
+                    yaxis=dict(
+                        showgrid=True,
+                        gridwidth=1,
+                        gridcolor='rgba(0,0,0,0.06)',
+                        tickfont=dict(color='#78909C', family='Nunito', size=10),
+                        tickprefix="$"
+                    ),
+                    margin=dict(l=10, r=10, t=30, b=10),
+                    height=300
+                )
+                
+                st.plotly_chart(fig_history, use_container_width=True)
+        else:
+            st.info("📅 El histórico se irá completando automáticamente cada día que consultes el portfolio.")
         
         # Sección de importar/exportar portfolio
         st.markdown("---")
