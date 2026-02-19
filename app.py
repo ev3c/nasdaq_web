@@ -2115,16 +2115,16 @@ def main():
                 num_days = calendar.monthrange(selected_year, selected_month)[1]
                 days_in_month = list(range(1, num_days + 1))
                 
-                # Índice por defecto: último día o día actual si es el mes actual
+                # Índice por defecto: último día del mes o día actual si es el mes actual
                 if selected_year == today.year and selected_month == today.month:
-                    default_index = min(today.day, num_days) - 1
+                    default_idx = today.day - 1
                 else:
-                    default_index = num_days - 1
+                    default_idx = len(days_in_month) - 1
                 
                 selected_day = st.selectbox(
                     "Día",
                     options=days_in_month,
-                    index=default_index,
+                    index=default_idx,
                     key="hist_day"
                 )
                 
