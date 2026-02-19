@@ -2233,7 +2233,7 @@ def main():
                                 """, unsafe_allow_html=True)
                             
                             # Mostrar detalle por acción
-                            with st.expander("📋 Detalle por acción"):
+                            with st.expander("📋 Detalle por acción", expanded=True):
                                 for symbol in portfolio_symbols:
                                     if symbol in historical_prices and historical_prices[symbol]:
                                         price = historical_prices[symbol]["close"]
