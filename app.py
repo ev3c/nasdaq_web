@@ -2079,137 +2079,176 @@ def main():
             if "selected_history_date" not in st.session_state:
                 st.session_state.selected_history_date = available_dates[0] if available_dates else None
             
-            # Calendario simple con selectores
-            today = datetime.now().date()
+            # En móvil: calendario arriba, datos abajo
+            # En desktop: calendario izquierda, datos derecha
+            col_cal1, col_cal2 = st.columns([1, 1.5])
             
-            # Obtener rango de años disponibles
-            years_available = sorted(set(int(d[:4]) for d in available_dates), reverse=True)
-            if not years_available:
-                years_available = [today.year]
-            
-            # Selectores de Año, Mes y Día en una fila
-            col_year, col_month, col_day = st.columns([1, 1.2, 1])
-            
-            months_es = ["Ene", "Feb", "Mar", "Abr", "May", "Jun",
-                         "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
-            
-            with col_year:
-                selected_year = st.selectbox(
-                    "Año",
-                    options=years_available,
-                    index=0,
-                    key="hist_year"
-                )
-            
-            with col_month:
-                selected_month = st.selectbox(
-                    "Mes",
-                    options=list(range(1, 13)),
-                    format_func=lambda x: months_es[x-1],
-                    index=today.month - 1 if selected_year == today.year else 0,
-                    key="hist_month"
-                )
-            
-            with col_day:
-                # Obtener todos los días del mes seleccionado
-                num_days = calendar.monthrange(selected_year, selected_month)[1]
-                days_in_month = list(range(1, num_days + 1))
+            with col_cal1:
+                # Contenedor del calendario con estilos
+                st.markdown('<div class="calendar-container">', unsafe_allow_html=True)
                 
-                # Índice por defecto: último día del mes o día actual si es el mes actual
-                if selected_year == today.year and selected_month == today.month:
-                    default_idx = today.day - 1
-                else:
-                    default_idx = len(days_in_month) - 1
+                # Navegación del mes
+                st.markdown('<div class="calendar-nav">', unsafe_allow_html=True)
+                nav_col1, nav_col2, nav_col3 = st.columns([1, 2.5, 1])
+                with nav_col1:
+                    if st.button("◀", key="prev_month", use_container_width=True):
+                        if st.session_state.cal_month == 1:
+                            st.session_state.cal_month = 12
+                            st.session_state.cal_year -= 1
+                        else:
+                            st.session_state.cal_month -= 1
+                        st.rerun()
                 
-                selected_day = st.selectbox(
-                    "Día",
-                    options=days_in_month,
-                    index=default_idx,
-                    key="hist_day"
-                )
+                with nav_col2:
+                    months_es = ["", "Ene", "Feb", "Mar", "Abr", "May", "Jun",
+                                 "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
+                    st.markdown(f"<div style='text-align:center;font-weight:700;color:#37474F;padding:4px;font-size:0.9rem;'>{months_es[st.session_state.cal_month]} {st.session_state.cal_year}</div>", unsafe_allow_html=True)
                 
-                # Construir fecha seleccionada
-                st.session_state.selected_history_date = f"{selected_year}-{selected_month:02d}-{selected_day:02d}"
+                with nav_col3:
+                    if st.button("▶", key="next_month", use_container_width=True):
+                        if st.session_state.cal_month == 12:
+                            st.session_state.cal_month = 1
+                            st.session_state.cal_year += 1
+                        else:
+                            st.session_state.cal_month += 1
+                        st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
+                
+                # Crear calendario visual
+                cal = calendar.Calendar(firstweekday=0)
+                month_days = cal.monthdayscalendar(st.session_state.cal_year, st.session_state.cal_month)
+                
+                # Cabecera días de la semana
+                st.markdown('<div class="calendar-weekdays">' + 
+                    ''.join([f"<div>{d}</div>" for d in ["L", "M", "X", "J", "V", "S", "D"]]) + 
+                    '</div>', unsafe_allow_html=True)
+                
+                # Días del mes
+                today = datetime.now().date()
+                st.markdown('<div class="calendar-days">', unsafe_allow_html=True)
+                for week in month_days:
+                    cols = st.columns(7, gap="small")
+                    for i, day in enumerate(week):
+                        with cols[i]:
+                            if day == 0:
+                                st.markdown("<div style='height:32px;'></div>", unsafe_allow_html=True)
+                            else:
+                                date_str = f"{st.session_state.cal_year}-{st.session_state.cal_month:02d}-{day:02d}"
+                                date_obj = datetime.strptime(date_str, "%Y-%m-%d").date()
+                                has_saved_data = date_str in available_dates_set
+                                is_selected = date_str == st.session_state.selected_history_date
+                                is_future = date_obj > today
+                                
+                                if is_future:
+                                    st.markdown(f"<div style='text-align:center;color:#E0E0E0;padding:6px 2px;font-size:0.8rem;height:32px;'>{day}</div>", unsafe_allow_html=True)
+                                else:
+                                    btn_type = "primary" if is_selected else "secondary"
+                                    
+                                    if st.button(
+                                        str(day), 
+                                        key=f"day_{date_str}",
+                                        type=btn_type,
+                                        use_container_width=True
+                                    ):
+                                        st.session_state.selected_history_date = date_str
+                                        st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
+                st.markdown('</div>', unsafe_allow_html=True)
             
             # Obtener datos de la fecha seleccionada
             selected_date_str = st.session_state.selected_history_date
             
-            # Mostrar datos del día seleccionado
-            st.markdown('<div class="history-metrics">', unsafe_allow_html=True)
-            if selected_date_str and portfolio:
-                st.markdown(f"<div style='font-weight:700;color:#37474F;font-size:0.95rem;margin:12px 0 8px 0;'>📆 Datos del {selected_date_str}</div>", unsafe_allow_html=True)
-                
-                # Obtener precios históricos de Internet
-                portfolio_symbols = [s for s in portfolio.keys() if s in MAGNIFICENT_SEVEN]
-                
-                if portfolio_symbols:
-                    with st.spinner("📡 Obteniendo datos..."):
-                        historical_prices = get_historical_prices(portfolio_symbols, selected_date_str)
+            with col_cal2:
+                st.markdown('<div class="history-metrics">', unsafe_allow_html=True)
+                if selected_date_str and portfolio:
+                    st.markdown(f"<div style='font-weight:700;color:#37474F;font-size:0.9rem;margin-bottom:8px;'>📆 {selected_date_str}</div>", unsafe_allow_html=True)
                     
-                    # Calcular valores del portfolio para esa fecha
-                    hist_invested = 0
-                    hist_value = 0
-                    hist_prev_value = 0
-                    actual_date_shown = None
-                    valid_data = False
+                    # Obtener precios históricos de Internet
+                    portfolio_symbols = [s for s in portfolio.keys() if s in MAGNIFICENT_SEVEN]
                     
-                    for symbol, positions in portfolio.items():
-                        if symbol in historical_prices and historical_prices[symbol]:
-                            price_data = historical_prices[symbol]
-                            actual_date_shown = price_data["actual_date"]
-                            valid_data = True
-                            
-                            for pos in positions:
-                                pos_date = datetime.strptime(pos["buy_date"], "%Y-%m-%d").date()
-                                sel_date = datetime.strptime(selected_date_str, "%Y-%m-%d").date()
+                    if portfolio_symbols:
+                        with st.spinner("📡"):
+                            historical_prices = get_historical_prices(portfolio_symbols, selected_date_str)
+                        
+                        # Calcular valores del portfolio para esa fecha
+                        hist_invested = 0
+                        hist_value = 0
+                        hist_prev_value = 0
+                        actual_date_shown = None
+                        valid_data = False
+                        
+                        for symbol, positions in portfolio.items():
+                            if symbol in historical_prices and historical_prices[symbol]:
+                                price_data = historical_prices[symbol]
+                                actual_date_shown = price_data["actual_date"]
+                                valid_data = True
                                 
-                                # Solo incluir posiciones compradas antes o en la fecha seleccionada
-                                if pos_date <= sel_date:
-                                    hist_invested += pos["shares"] * pos["buy_price"]
-                                    hist_value += pos["shares"] * price_data["close"]
-                                    hist_prev_value += pos["shares"] * price_data["prev_close"]
-                    
-                    if valid_data and hist_invested > 0:
-                        hist_gain = hist_value - hist_invested
-                        hist_gain_pct = (hist_gain / hist_invested) * 100
-                        hist_daily = hist_value - hist_prev_value
-                        hist_daily_pct = (hist_daily / hist_prev_value) * 100 if hist_prev_value > 0 else 0
+                                for pos in positions:
+                                    pos_date = datetime.strptime(pos["buy_date"], "%Y-%m-%d").date()
+                                    sel_date = datetime.strptime(selected_date_str, "%Y-%m-%d").date()
+                                    
+                                    # Solo incluir posiciones compradas antes o en la fecha seleccionada
+                                    if pos_date <= sel_date:
+                                        hist_invested += pos["shares"] * pos["buy_price"]
+                                        hist_value += pos["shares"] * price_data["close"]
+                                        hist_prev_value += pos["shares"] * price_data["prev_close"]
                         
-                        if actual_date_shown and actual_date_shown != selected_date_str:
-                            st.caption(f"📍 Datos del día de mercado: {actual_date_shown}")
-                        
-                        # Métricas en 2x2
-                        m1, m2 = st.columns(2, gap="small")
-                        with m1:
-                            st.metric("💵 Invertido", f"${hist_invested:,.0f}")
-                        with m2:
-                            st.metric("💰 Valor", f"${hist_value:,.0f}")
-                        
-                        m3, m4 = st.columns(2, gap="small")
-                        with m3:
-                            gain_delta = f"{hist_gain_pct:+.1f}%"
-                            st.metric("📈 Ganancia", f"${hist_gain:+,.0f}", gain_delta)
-                        with m4:
-                            daily_delta = f"{hist_daily_pct:+.1f}%"
-                            st.metric("📊 Día", f"${hist_daily:+,.0f}", daily_delta)
-                        
-                        # Detalle por acción desplegado
-                        with st.expander("📋 Detalle por acción", expanded=True):
-                            for symbol in portfolio_symbols:
-                                if symbol in historical_prices and historical_prices[symbol]:
-                                    price = historical_prices[symbol]["close"]
-                                    prev = historical_prices[symbol]["prev_close"]
-                                    change = ((price - prev) / prev) * 100 if prev > 0 else 0
-                                    change_color = COLORS["up"] if change >= 0 else COLORS["down"]
-                                    arrow = "▲" if change >= 0 else "▼"
-                                    st.markdown(f"**{symbol}**: ${price:.2f} <span style='color:{change_color};'>{arrow} {change:+.2f}%</span>", unsafe_allow_html=True)
+                        if valid_data and hist_invested > 0:
+                            hist_gain = hist_value - hist_invested
+                            hist_gain_pct = (hist_gain / hist_invested) * 100
+                            hist_daily = hist_value - hist_prev_value
+                            hist_daily_pct = (hist_daily / hist_prev_value) * 100 if hist_prev_value > 0 else 0
+                            
+                            if actual_date_shown and actual_date_shown != selected_date_str:
+                                st.caption(f"📍 {actual_date_shown}")
+                            
+                            hm1, hm2 = st.columns(2, gap="small")
+                            with hm1:
+                                st.metric("💵 Invertido", f"${hist_invested:,.0f}")
+                            with hm2:
+                                st.metric("💰 Valor", f"${hist_value:,.0f}")
+                            
+                            # Cards de ganancia más compactas
+                            gain_color = COLORS["up"] if hist_gain >= 0 else COLORS["down"]
+                            daily_color = COLORS["up"] if hist_daily >= 0 else COLORS["down"]
+                            
+                            gc1, gc2 = st.columns(2, gap="small")
+                            with gc1:
+                                st.markdown(f"""
+                                <div class="history-card" style="background:white;padding:8px;border-radius:8px;border:1px solid #ECEFF1;">
+                                    <span style="color:#78909C;font-size:0.7rem;">📈 Ganancia</span><br>
+                                    <span style="font-family:monospace;font-size:0.9rem;font-weight:600;color:{gain_color};">
+                                        ${hist_gain:+,.0f} ({hist_gain_pct:+.1f}%)
+                                    </span>
+                                </div>
+                                """, unsafe_allow_html=True)
+                            with gc2:
+                                st.markdown(f"""
+                                <div class="history-card" style="background:white;padding:8px;border-radius:8px;border:1px solid #ECEFF1;">
+                                    <span style="color:#78909C;font-size:0.7rem;">📊 Hoy</span><br>
+                                    <span style="font-family:monospace;font-size:0.9rem;font-weight:600;color:{daily_color};">
+                                        ${hist_daily:+,.0f} ({hist_daily_pct:+.1f}%)
+                                    </span>
+                                </div>
+                                """, unsafe_allow_html=True)
+                            
+                            # Mostrar detalle por acción
+                            with st.expander("📋 Detalle por acción", expanded=True):
+                                for symbol in portfolio_symbols:
+                                    if symbol in historical_prices and historical_prices[symbol]:
+                                        price = historical_prices[symbol]["close"]
+                                        prev = historical_prices[symbol]["prev_close"]
+                                        change = ((price - prev) / prev) * 100 if prev > 0 else 0
+                                        change_color = COLORS["up"] if change >= 0 else COLORS["down"]
+                                        arrow = "▲" if change >= 0 else "▼"
+                                        st.markdown(f"**{symbol}**: ${price:.2f} <span style='color:{change_color};'>{arrow} {change:+.2f}%</span>", unsafe_allow_html=True)
+                        else:
+                            st.warning("No tenías posiciones en el portfolio para esta fecha.")
                     else:
-                        st.warning("No tenías posiciones en el portfolio para esta fecha.")
+                        st.info("Añade posiciones al portfolio para ver el histórico.")
                 else:
-                    st.info("Añade posiciones al portfolio para ver el histórico.")
-            else:
-                st.info("Selecciona una fecha para ver los datos históricos.")
-            st.markdown('</div>', unsafe_allow_html=True)
+                    st.info("Selecciona un día en el calendario.")
+                st.markdown('</div>', unsafe_allow_html=True)
             
             # Gráfico de evolución del portfolio
             if len(portfolio_history) > 1:
