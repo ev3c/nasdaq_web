@@ -2111,30 +2111,25 @@ def main():
                 )
             
             with col_day:
-                # Obtener días del mes seleccionado
-                cal = calendar.Calendar(firstweekday=0)
-                days_in_month = [d for d in range(1, 32) if d <= calendar.monthrange(selected_year, selected_month)[1]]
+                # Obtener todos los días del mes seleccionado
+                num_days = calendar.monthrange(selected_year, selected_month)[1]
+                days_in_month = list(range(1, num_days + 1))
                 
-                # Filtrar solo días no futuros
-                valid_days = []
-                for d in days_in_month:
-                    date_obj = datetime(selected_year, selected_month, d).date()
-                    if date_obj <= today:
-                        valid_days.append(d)
-                
-                if valid_days:
-                    selected_day = st.selectbox(
-                        "Día",
-                        options=valid_days,
-                        index=len(valid_days) - 1,
-                        key="hist_day"
-                    )
-                    
-                    # Construir fecha seleccionada
-                    st.session_state.selected_history_date = f"{selected_year}-{selected_month:02d}-{selected_day:02d}"
+                # Índice por defecto: hoy si es el mes actual, sino último día
+                if selected_year == today.year and selected_month == today.month:
+                    default_idx = min(today.day - 1, len(days_in_month) - 1)
                 else:
-                    st.info("Sin días disponibles")
-                    st.session_state.selected_history_date = None
+                    default_idx = len(days_in_month) - 1
+                
+                selected_day = st.selectbox(
+                    "Día",
+                    options=days_in_month,
+                    index=default_idx,
+                    key="hist_day"
+                )
+                
+                # Construir fecha seleccionada
+                st.session_state.selected_history_date = f"{selected_year}-{selected_month:02d}-{selected_day:02d}"
             
             # Obtener datos de la fecha seleccionada
             selected_date_str = st.session_state.selected_history_date
