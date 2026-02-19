@@ -529,6 +529,122 @@ st.markdown("""
             min-height: 48px;
         }
     }
+    
+    /* ============================================
+       CALENDARIO RESPONSIVE
+       ============================================ */
+    
+    /* Contenedor del calendario */
+    .calendar-container {
+        background: white;
+        border-radius: 12px;
+        padding: 12px;
+        border: 1px solid #ECEFF1;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    }
+    
+    /* Botones del calendario más compactos */
+    .calendar-container .stButton > button {
+        padding: 4px 2px !important;
+        min-height: 36px !important;
+        font-size: 0.85rem !important;
+        border-radius: 8px !important;
+    }
+    
+    /* Header del calendario */
+    .calendar-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 8px;
+    }
+    
+    /* Días de la semana header */
+    .calendar-weekdays {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 2px;
+        text-align: center;
+        margin-bottom: 4px;
+    }
+    
+    .calendar-weekdays div {
+        font-weight: 700;
+        color: #78909C;
+        font-size: 0.7rem;
+        padding: 4px 2px;
+    }
+    
+    /* Mobile: Calendario ocupa todo el ancho */
+    @media (max-width: 768px) {
+        /* Botones del calendario más pequeños en móvil */
+        .calendar-container .stButton > button {
+            padding: 2px 1px !important;
+            min-height: 32px !important;
+            font-size: 0.75rem !important;
+            border-radius: 6px !important;
+        }
+        
+        /* Navegación del mes compacta */
+        .calendar-nav .stButton > button {
+            padding: 4px 8px !important;
+            min-height: 28px !important;
+            font-size: 0.9rem !important;
+        }
+        
+        /* Columnas del calendario sin gap */
+        .calendar-days [data-testid="stHorizontalBlock"] {
+            gap: 2px !important;
+        }
+        
+        .calendar-days [data-testid="stHorizontalBlock"] > [data-testid="stVerticalBlock"] {
+            flex: 1 !important;
+            min-width: 0 !important;
+            padding: 1px !important;
+        }
+        
+        /* Métricas del histórico compactas */
+        .history-metrics [data-testid="stMetric"] {
+            padding: 6px !important;
+        }
+        
+        .history-metrics [data-testid="stMetricValue"] {
+            font-size: 0.95rem !important;
+        }
+        
+        .history-metrics [data-testid="stMetricLabel"] {
+            font-size: 0.7rem !important;
+        }
+        
+        /* Cards de ganancia más compactas */
+        .history-card {
+            padding: 8px !important;
+            margin-top: 6px !important;
+        }
+        
+        .history-card span:first-child {
+            font-size: 0.75rem !important;
+        }
+        
+        .history-card span:last-child {
+            font-size: 0.95rem !important;
+        }
+    }
+    
+    /* Extra small screens */
+    @media (max-width: 480px) {
+        .calendar-container .stButton > button {
+            padding: 1px 0px !important;
+            min-height: 28px !important;
+            font-size: 0.7rem !important;
+            border-radius: 4px !important;
+        }
+        
+        .calendar-weekdays div {
+            font-size: 0.6rem;
+            padding: 2px 1px;
+        }
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -1963,11 +2079,17 @@ def main():
             if "selected_history_date" not in st.session_state:
                 st.session_state.selected_history_date = available_dates[0] if available_dates else None
             
-            col_cal1, col_cal2 = st.columns([1.2, 1.8])
+            # En móvil: calendario arriba, datos abajo
+            # En desktop: calendario izquierda, datos derecha
+            col_cal1, col_cal2 = st.columns([1, 1.5])
             
             with col_cal1:
+                # Contenedor del calendario con estilos
+                st.markdown('<div class="calendar-container">', unsafe_allow_html=True)
+                
                 # Navegación del mes
-                nav_col1, nav_col2, nav_col3 = st.columns([1, 2, 1])
+                st.markdown('<div class="calendar-nav">', unsafe_allow_html=True)
+                nav_col1, nav_col2, nav_col3 = st.columns([1, 2.5, 1])
                 with nav_col1:
                     if st.button("◀", key="prev_month", use_container_width=True):
                         if st.session_state.cal_month == 1:
@@ -1978,9 +2100,9 @@ def main():
                         st.rerun()
                 
                 with nav_col2:
-                    months_es = ["", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
-                                 "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
-                    st.markdown(f"<div style='text-align:center;font-weight:700;color:#37474F;padding:8px;'>{months_es[st.session_state.cal_month]} {st.session_state.cal_year}</div>", unsafe_allow_html=True)
+                    months_es = ["", "Ene", "Feb", "Mar", "Abr", "May", "Jun",
+                                 "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
+                    st.markdown(f"<div style='text-align:center;font-weight:700;color:#37474F;padding:4px;font-size:0.9rem;'>{months_es[st.session_state.cal_month]} {st.session_state.cal_year}</div>", unsafe_allow_html=True)
                 
                 with nav_col3:
                     if st.button("▶", key="next_month", use_container_width=True):
@@ -1990,45 +2112,37 @@ def main():
                         else:
                             st.session_state.cal_month += 1
                         st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
                 
                 # Crear calendario visual
                 cal = calendar.Calendar(firstweekday=0)
                 month_days = cal.monthdayscalendar(st.session_state.cal_year, st.session_state.cal_month)
                 
                 # Cabecera días de la semana
-                days_header = "<div style='display:grid;grid-template-columns:repeat(7,1fr);gap:2px;text-align:center;margin-bottom:4px;'>"
-                for day_name in ["L", "M", "X", "J", "V", "S", "D"]:
-                    days_header += f"<div style='font-weight:700;color:#78909C;font-size:0.75rem;padding:4px;'>{day_name}</div>"
-                days_header += "</div>"
-                st.markdown(days_header, unsafe_allow_html=True)
+                st.markdown('<div class="calendar-weekdays">' + 
+                    ''.join([f"<div>{d}</div>" for d in ["L", "M", "X", "J", "V", "S", "D"]]) + 
+                    '</div>', unsafe_allow_html=True)
                 
                 # Días del mes
                 today = datetime.now().date()
+                st.markdown('<div class="calendar-days">', unsafe_allow_html=True)
                 for week in month_days:
-                    cols = st.columns(7)
+                    cols = st.columns(7, gap="small")
                     for i, day in enumerate(week):
                         with cols[i]:
                             if day == 0:
-                                st.write("")
+                                st.markdown("<div style='height:32px;'></div>", unsafe_allow_html=True)
                             else:
                                 date_str = f"{st.session_state.cal_year}-{st.session_state.cal_month:02d}-{day:02d}"
                                 date_obj = datetime.strptime(date_str, "%Y-%m-%d").date()
                                 has_saved_data = date_str in available_dates_set
                                 is_selected = date_str == st.session_state.selected_history_date
                                 is_future = date_obj > today
-                                is_weekend = date_obj.weekday() >= 5
                                 
                                 if is_future:
-                                    # Día futuro - no clickeable
-                                    st.markdown(f"<div style='text-align:center;color:#E0E0E0;padding:8px;font-size:0.85rem;'>{day}</div>", unsafe_allow_html=True)
+                                    st.markdown(f"<div style='text-align:center;color:#E0E0E0;padding:6px 2px;font-size:0.8rem;height:32px;'>{day}</div>", unsafe_allow_html=True)
                                 else:
-                                    # Día pasado o presente - clickeable
-                                    if is_selected:
-                                        btn_type = "primary"
-                                    elif has_saved_data:
-                                        btn_type = "secondary"
-                                    else:
-                                        btn_type = "secondary"
+                                    btn_type = "primary" if is_selected else "secondary"
                                     
                                     if st.button(
                                         str(day), 
@@ -2038,19 +2152,22 @@ def main():
                                     ):
                                         st.session_state.selected_history_date = date_str
                                         st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
+                st.markdown('</div>', unsafe_allow_html=True)
             
             # Obtener datos de la fecha seleccionada
             selected_date_str = st.session_state.selected_history_date
             
             with col_cal2:
+                st.markdown('<div class="history-metrics">', unsafe_allow_html=True)
                 if selected_date_str and portfolio:
-                    st.markdown(f"**📆 Datos del {selected_date_str}**")
+                    st.markdown(f"<div style='font-weight:700;color:#37474F;font-size:0.9rem;margin-bottom:8px;'>📆 {selected_date_str}</div>", unsafe_allow_html=True)
                     
                     # Obtener precios históricos de Internet
                     portfolio_symbols = [s for s in portfolio.keys() if s in MAGNIFICENT_SEVEN]
                     
                     if portfolio_symbols:
-                        with st.spinner("📡 Obteniendo datos históricos..."):
+                        with st.spinner("📡"):
                             historical_prices = get_historical_prices(portfolio_symbols, selected_date_str)
                         
                         # Calcular valores del portfolio para esa fecha
@@ -2083,29 +2200,34 @@ def main():
                             hist_daily_pct = (hist_daily / hist_prev_value) * 100 if hist_prev_value > 0 else 0
                             
                             if actual_date_shown and actual_date_shown != selected_date_str:
-                                st.caption(f"📍 Datos del día de mercado más cercano: {actual_date_shown}")
+                                st.caption(f"📍 {actual_date_shown}")
                             
-                            hm1, hm2 = st.columns(2)
+                            hm1, hm2 = st.columns(2, gap="small")
                             with hm1:
-                                st.metric("💵 Invertido", f"${hist_invested:,.2f}")
-                                gain_color = COLORS["up"] if hist_gain >= 0 else COLORS["down"]
+                                st.metric("💵 Invertido", f"${hist_invested:,.0f}")
+                            with hm2:
+                                st.metric("💰 Valor", f"${hist_value:,.0f}")
+                            
+                            # Cards de ganancia más compactas
+                            gain_color = COLORS["up"] if hist_gain >= 0 else COLORS["down"]
+                            daily_color = COLORS["up"] if hist_daily >= 0 else COLORS["down"]
+                            
+                            gc1, gc2 = st.columns(2, gap="small")
+                            with gc1:
                                 st.markdown(f"""
-                                <div style="background:white;padding:10px;border-radius:10px;border:1px solid #ECEFF1;margin-top:8px;">
-                                    <span style="color:#78909C;font-size:0.85rem;">📈 Ganancia Total</span><br>
-                                    <span style="font-family:'IBM Plex Mono',monospace;font-size:1.1rem;font-weight:600;color:{gain_color};">
-                                        ${hist_gain:+,.2f} ({hist_gain_pct:+.2f}%)
+                                <div class="history-card" style="background:white;padding:8px;border-radius:8px;border:1px solid #ECEFF1;">
+                                    <span style="color:#78909C;font-size:0.7rem;">📈 Ganancia</span><br>
+                                    <span style="font-family:monospace;font-size:0.9rem;font-weight:600;color:{gain_color};">
+                                        ${hist_gain:+,.0f} ({hist_gain_pct:+.1f}%)
                                     </span>
                                 </div>
                                 """, unsafe_allow_html=True)
-                            
-                            with hm2:
-                                st.metric("💰 Valor", f"${hist_value:,.2f}")
-                                daily_color = COLORS["up"] if hist_daily >= 0 else COLORS["down"]
+                            with gc2:
                                 st.markdown(f"""
-                                <div style="background:white;padding:10px;border-radius:10px;border:1px solid #ECEFF1;margin-top:8px;">
-                                    <span style="color:#78909C;font-size:0.85rem;">📊 Cambio del Día</span><br>
-                                    <span style="font-family:'IBM Plex Mono',monospace;font-size:1.1rem;font-weight:600;color:{daily_color};">
-                                        ${hist_daily:+,.2f} ({hist_daily_pct:+.2f}%)
+                                <div class="history-card" style="background:white;padding:8px;border-radius:8px;border:1px solid #ECEFF1;">
+                                    <span style="color:#78909C;font-size:0.7rem;">📊 Hoy</span><br>
+                                    <span style="font-family:monospace;font-size:0.9rem;font-weight:600;color:{daily_color};">
+                                        ${hist_daily:+,.0f} ({hist_daily_pct:+.1f}%)
                                     </span>
                                 </div>
                                 """, unsafe_allow_html=True)
@@ -2125,7 +2247,8 @@ def main():
                     else:
                         st.info("Añade posiciones al portfolio para ver el histórico.")
                 else:
-                    st.info("Selecciona un día en el calendario para ver los datos.")
+                    st.info("Selecciona un día en el calendario.")
+                st.markdown('</div>', unsafe_allow_html=True)
             
             # Gráfico de evolución del portfolio
             if len(portfolio_history) > 1:
