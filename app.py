@@ -2158,7 +2158,12 @@ def main():
                     key="portfolio_symbol_crypto"
                 )
             
-            shares = st.number_input("Número de acciones", min_value=0.0, value=1.0, step=0.1)
+            # Etiqueta diferente según tipo de activo
+            if asset_type == "📈 Acciones":
+                shares = st.number_input("Número de acciones", min_value=0.0, value=1.0, step=0.1)
+            else:
+                shares = st.number_input("Cantidad", min_value=0.0, value=0.1, step=0.01, format="%.4f")
+            
             buy_price = st.number_input("Precio de compra ($)", min_value=0.0, value=100.0, step=1.0)
             buy_date = st.date_input("Fecha de compra", value=datetime.now())
             
@@ -2219,7 +2224,7 @@ def main():
                                 
                                 portfolio_details.append({
                                     "Símbolo": symbol,
-                                    "Acciones": pos['shares'],
+                                    "Cantidad": pos['shares'],
                                     "P. Compra": pos['buy_price'],
                                     "P. Actual": curr_price,
                                     "Invertido": invested,
@@ -2266,7 +2271,7 @@ def main():
                     
                     styled_df = df.style.apply(lambda x: [style_gains(v, c) for c, v in x.items()], axis=1)
                     styled_df = styled_df.format({
-                        'Acciones': '{:.2f}',
+                        'Cantidad': '{:.4f}',
                         'P. Compra': '${:.2f}',
                         'P. Actual': '${:.2f}',
                         'Invertido': '${:.2f}',
