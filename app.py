@@ -2128,12 +2128,35 @@ def main():
         with col1:
             st.markdown("#### Añadir Posición")
             
-            port_symbol = st.selectbox(
-                "Acción",
-                options=list(MAGNIFICENT_SEVEN.keys()),
-                format_func=lambda x: f"{x} - {MAGNIFICENT_SEVEN[x]['name']}",
-                key="portfolio_symbol"
+            # Combinar acciones y criptos
+            all_assets = {**MAGNIFICENT_SEVEN, **TOP_CRYPTO}
+            
+            # Separar por categorías para el selectbox
+            stock_options = list(MAGNIFICENT_SEVEN.keys())
+            crypto_options = list(TOP_CRYPTO.keys())
+            
+            asset_type = st.radio(
+                "Tipo",
+                options=["📈 Acciones", "🪙 Crypto"],
+                horizontal=True,
+                key="asset_type",
+                label_visibility="collapsed"
             )
+            
+            if asset_type == "📈 Acciones":
+                port_symbol = st.selectbox(
+                    "Acción",
+                    options=stock_options,
+                    format_func=lambda x: f"{x} - {MAGNIFICENT_SEVEN[x]['name']}",
+                    key="portfolio_symbol_stock"
+                )
+            else:
+                port_symbol = st.selectbox(
+                    "Criptomoneda",
+                    options=crypto_options,
+                    format_func=lambda x: f"{TOP_CRYPTO[x]['emoji']} {TOP_CRYPTO[x]['name']}",
+                    key="portfolio_symbol_crypto"
+                )
             
             shares = st.number_input("Número de acciones", min_value=0.0, value=1.0, step=0.1)
             buy_price = st.number_input("Precio de compra ($)", min_value=0.0, value=100.0, step=1.0)
@@ -2156,17 +2179,28 @@ def main():
             st.markdown("#### Resumen del Portfolio")
             
             if portfolio:
+                # Obtener datos de criptos si hay alguna en el portfolio
+                portfolio_cryptos = [s for s in portfolio.keys() if s in TOP_CRYPTO]
+                crypto_data_portfolio = {}
+                if portfolio_cryptos:
+                    with st.spinner(""):
+                        crypto_data_portfolio = get_stock_data(portfolio_cryptos, "1mo")
+                
+                # Combinar datos de acciones y criptos
+                all_portfolio_data = {**stock_data, **crypto_data_portfolio}
+                all_assets = {**MAGNIFICENT_SEVEN, **TOP_CRYPTO}
+                
                 total_invested = 0
                 total_current = 0
                 total_prev_value = 0  # Valor al cierre anterior
                 portfolio_details = []
                 
                 for symbol, positions in portfolio.items():
-                    if symbol in MAGNIFICENT_SEVEN:
-                        stock_info = stock_data.get(symbol, {})
-                        if stock_info and stock_info.get("current_price"):
-                            curr_price = stock_info["current_price"]
-                            prev_close = stock_info.get("prev_close", curr_price)
+                    if symbol in all_assets:
+                        asset_info = all_portfolio_data.get(symbol, {})
+                        if asset_info and asset_info.get("current_price"):
+                            curr_price = asset_info["current_price"]
+                            prev_close = asset_info.get("prev_close", curr_price)
                             
                             for pos in positions:
                                 invested = pos["shares"] * pos["buy_price"]
@@ -2245,12 +2279,14 @@ def main():
                     
                     st.dataframe(styled_df, use_container_width=True, hide_index=True)
                     
-                    # Gráfico de distribución con color único por acción
+                    # Gráfico de distribución con color único por activo
                     pie_colors = []
                     for d in portfolio_details:
                         symbol = d["Símbolo"]
                         if symbol in MAGNIFICENT_SEVEN:
                             pie_colors.append(MAGNIFICENT_SEVEN[symbol]['color'])
+                        elif symbol in TOP_CRYPTO:
+                            pie_colors.append(TOP_CRYPTO[symbol]['color'])
                         else:
                             pie_colors.append('#B39DDB')  # Color por defecto
                     
@@ -2386,8 +2422,9 @@ def main():
                 if selected_date_str and portfolio:
                     st.markdown(f"<div style='font-weight:700;color:#37474F;font-size:0.9rem;margin-bottom:8px;'>📆 {selected_date_str}</div>", unsafe_allow_html=True)
                     
-                    # Obtener precios históricos de Internet
-                    portfolio_symbols = [s for s in portfolio.keys() if s in MAGNIFICENT_SEVEN]
+                    # Obtener precios históricos de Internet (acciones y criptos)
+                    all_assets = {**MAGNIFICENT_SEVEN, **TOP_CRYPTO}
+                    portfolio_symbols = [s for s in portfolio.keys() if s in all_assets]
                     
                     if portfolio_symbols:
                         with st.spinner("📡"):
