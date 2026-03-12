@@ -2325,17 +2325,34 @@ def main():
                         total_gain_pct, total_daily_gain, total_daily_pct
                     )
                     
+                    # Convertir a EUR si es necesario
+                    conv_rate = eur_usd_rate if st.session_state.currency == "EUR" else 1
+                    disp_invested = total_invested / conv_rate
+                    disp_current = total_current / conv_rate
+                    disp_gain = total_gain / conv_rate
+                    disp_daily = total_daily_gain / conv_rate
+                    
                     m1, m2, m3, m4 = st.columns(4)
                     with m1:
-                        st.metric("Invertido", f"${total_invested:,.2f}")
+                        st.metric("Invertido", f"{curr_symbol}{disp_invested:,.2f}")
                     with m2:
-                        st.metric("Valor Actual", f"${total_current:,.2f}")
+                        st.metric("Valor Actual", f"{curr_symbol}{disp_current:,.2f}")
                     with m3:
-                        st.metric("Ganancia Total", f"${total_gain:+,.2f}", f"{total_gain_pct:+.2f}%")
+                        st.metric("Ganancia Total", f"{curr_symbol}{disp_gain:+,.2f}", f"{total_gain_pct:+.2f}%")
                     with m4:
-                        st.metric("Hoy", f"${total_daily_gain:+,.2f}", f"{total_daily_pct:+.2f}%")
+                        st.metric("Hoy", f"{curr_symbol}{disp_daily:+,.2f}", f"{total_daily_pct:+.2f}%")
                     
                     st.markdown("---")
+                    
+                    # Convertir valores de la tabla si es EUR
+                    if st.session_state.currency == "EUR":
+                        for detail in portfolio_details:
+                            detail["P. Compra"] = detail["P. Compra"] / eur_usd_rate
+                            detail["P. Actual"] = detail["P. Actual"] / eur_usd_rate
+                            detail["Invertido"] = detail["Invertido"] / eur_usd_rate
+                            detail["Valor"] = detail["Valor"] / eur_usd_rate
+                            detail["Ganancia"] = detail["Ganancia"] / eur_usd_rate
+                            detail["Día $"] = detail["Día $"] / eur_usd_rate
                     
                     # Tabla con colores verde/rojo
                     df = pd.DataFrame(portfolio_details)
@@ -2349,13 +2366,13 @@ def main():
                     styled_df = df.style.apply(lambda x: [style_gains(v, c) for c, v in x.items()], axis=1)
                     styled_df = styled_df.format({
                         'Acciones': '{:.2f}',
-                        'P. Compra': '${:.2f}',
-                        'P. Actual': '${:.2f}',
-                        'Invertido': '${:.2f}',
-                        'Valor': '${:.2f}',
-                        'Ganancia': '${:+.2f}',
+                        'P. Compra': f'{curr_symbol}{{:.2f}}',
+                        'P. Actual': f'{curr_symbol}{{:.2f}}',
+                        'Invertido': f'{curr_symbol}{{:.2f}}',
+                        'Valor': f'{curr_symbol}{{:.2f}}',
+                        'Ganancia': f'{curr_symbol}{{:+.2f}}',
                         'Rend. %': '{:+.2f}%',
-                        'Día $': '${:+.2f}',
+                        'Día $': f'{curr_symbol}{{:+.2f}}',
                         'Día %': '{:+.2f}%'
                     })
                     
@@ -2537,14 +2554,21 @@ def main():
                             hist_daily = hist_value - hist_prev_value
                             hist_daily_pct = (hist_daily / hist_prev_value) * 100 if hist_prev_value > 0 else 0
                             
+                            # Convertir a EUR si es necesario
+                            conv = eur_usd_rate if st.session_state.currency == "EUR" else 1
+                            disp_hist_invested = hist_invested / conv
+                            disp_hist_value = hist_value / conv
+                            disp_hist_gain = hist_gain / conv
+                            disp_hist_daily = hist_daily / conv
+                            
                             if actual_date_shown and actual_date_shown != selected_date_str:
                                 st.caption(f"📍 {actual_date_shown}")
                             
                             hm1, hm2 = st.columns(2, gap="small")
                             with hm1:
-                                st.metric("💵 Invertido", f"${hist_invested:,.0f}")
+                                st.metric(f"{'💶' if st.session_state.currency == 'EUR' else '💵'} Invertido", f"{curr_symbol}{disp_hist_invested:,.0f}")
                             with hm2:
-                                st.metric("💰 Valor", f"${hist_value:,.0f}")
+                                st.metric("💰 Valor", f"{curr_symbol}{disp_hist_value:,.0f}")
                             
                             # Cards de ganancia más compactas
                             gain_color = COLORS["up"] if hist_gain >= 0 else COLORS["down"]
@@ -2556,7 +2580,7 @@ def main():
                                 <div class="history-card" style="background:white;padding:8px;border-radius:8px;border:1px solid #ECEFF1;">
                                     <span style="color:#78909C;font-size:0.7rem;">📈 Ganancia</span><br>
                                     <span style="font-family:monospace;font-size:0.9rem;font-weight:600;color:{gain_color};">
-                                        ${hist_gain:+,.0f} ({hist_gain_pct:+.1f}%)
+                                        {curr_symbol}{disp_hist_gain:+,.0f} ({hist_gain_pct:+.1f}%)
                                     </span>
                                 </div>
                                 """, unsafe_allow_html=True)
@@ -2565,7 +2589,7 @@ def main():
                                 <div class="history-card" style="background:white;padding:8px;border-radius:8px;border:1px solid #ECEFF1;">
                                     <span style="color:#78909C;font-size:0.7rem;">📊 Hoy</span><br>
                                     <span style="font-family:monospace;font-size:0.9rem;font-weight:600;color:{daily_color};">
-                                        ${hist_daily:+,.0f} ({hist_daily_pct:+.1f}%)
+                                        {curr_symbol}{disp_hist_daily:+,.0f} ({hist_daily_pct:+.1f}%)
                                     </span>
                                 </div>
                                 """, unsafe_allow_html=True)
@@ -2575,11 +2599,12 @@ def main():
                                 for symbol in portfolio_symbols:
                                     if symbol in historical_prices and historical_prices[symbol]:
                                         price = historical_prices[symbol]["close"]
+                                        price_disp = price / conv
                                         prev = historical_prices[symbol]["prev_close"]
                                         change = ((price - prev) / prev) * 100 if prev > 0 else 0
                                         change_color = COLORS["up"] if change >= 0 else COLORS["down"]
                                         arrow = "▲" if change >= 0 else "▼"
-                                        st.markdown(f"**{symbol}**: ${price:.2f} <span style='color:{change_color};'>{arrow} {change:+.2f}%</span>", unsafe_allow_html=True)
+                                        st.markdown(f"**{symbol}**: {curr_symbol}{price_disp:.2f} <span style='color:{change_color};'>{arrow} {change:+.2f}%</span>", unsafe_allow_html=True)
                         else:
                             st.warning("No se pudieron obtener datos de precios para esta fecha.")
                     else:
