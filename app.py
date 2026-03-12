@@ -2312,7 +2312,6 @@ def main():
                 total_prev_value = 0  # Valor al cierre anterior
                 portfolio_details = []
                 
-                position_index = 0
                 for symbol, positions in portfolio.items():
                     if symbol in all_assets:
                         asset_info = all_portfolio_data.get(symbol, {})
@@ -2336,8 +2335,8 @@ def main():
                                 total_prev_value += prev_value
                                 
                                 portfolio_details.append({
-                                    "_symbol": symbol,
-                                    "_pos_idx": pos_idx,
+                                    "symbol_key": symbol,
+                                    "pos_index": pos_idx,
                                     "Símbolo": symbol,
                                     "Acciones": pos['shares'],
                                     "P. Compra": pos['buy_price'],
@@ -2349,7 +2348,6 @@ def main():
                                     "Día $": daily_gain,
                                     "Día %": daily_gain_pct
                                 })
-                                position_index += 1
                 
                 if portfolio_details:
                     # Métricas generales con colores
@@ -2393,43 +2391,55 @@ def main():
                             detail["Ganancia"] = detail["Ganancia"] / eur_usd_rate
                             detail["Día $"] = detail["Día $"] / eur_usd_rate
                     
-                    # Tabla con botones de eliminar
-                    st.markdown("**Posiciones** (pulsa ❌ para eliminar)")
+                    # Tabla interactiva con botón eliminar
+                    st.markdown("#### 📋 Posiciones")
                     
+                    # Cabecera de la tabla
+                    header_cols = st.columns([0.4, 1, 0.8, 0.9, 0.9, 0.9, 0.9, 0.9, 0.8, 0.9, 0.8])
+                    headers = ["", "Símbolo", "Acciones", "P.Compra", "P.Actual", "Invertido", "Valor", "Ganancia", "Rend.%", "Día $", "Día %"]
+                    for col, header in zip(header_cols, headers):
+                        with col:
+                            st.markdown(f"<div style='font-weight:700;font-size:0.75rem;color:#78909C;text-align:center;'>{header}</div>", unsafe_allow_html=True)
+                    
+                    # Filas de datos con botón eliminar
                     for idx, detail in enumerate(portfolio_details):
-                        col_del, col_sym, col_acc, col_pcomp, col_pact, col_inv, col_val, col_gan, col_rend = st.columns([0.4, 0.8, 0.7, 0.8, 0.8, 0.8, 0.8, 0.9, 0.7])
+                        row_cols = st.columns([0.4, 1, 0.8, 0.9, 0.9, 0.9, 0.9, 0.9, 0.8, 0.9, 0.8])
                         
-                        with col_del:
-                            if st.button("❌", key=f"del_pos_{detail['_symbol']}_{detail['_pos_idx']}_{idx}"):
-                                # Eliminar la posición
-                                sym = detail["_symbol"]
-                                pos_idx = detail["_pos_idx"]
-                                if sym in portfolio and len(portfolio[sym]) > pos_idx:
-                                    portfolio[sym].pop(pos_idx)
-                                    if len(portfolio[sym]) == 0:
-                                        del portfolio[sym]
+                        gain_color = COLORS["up"] if detail["Ganancia"] >= 0 else COLORS["down"]
+                        day_color = COLORS["up"] if detail["Día $"] >= 0 else COLORS["down"]
+                        
+                        with row_cols[0]:
+                            if st.button("❌", key=f"del_pos_{detail['symbol_key']}_{detail['pos_index']}", help="Eliminar posición"):
+                                # Eliminar la posición del portfolio
+                                symbol = detail["symbol_key"]
+                                pos_idx = detail["pos_index"]
+                                if symbol in portfolio and len(portfolio[symbol]) > pos_idx:
+                                    portfolio[symbol].pop(pos_idx)
+                                    if len(portfolio[symbol]) == 0:
+                                        del portfolio[symbol]
                                     save_portfolio(portfolio)
                                     st.rerun()
                         
-                        gain_color = COLORS["up"] if detail["Ganancia"] >= 0 else COLORS["down"]
-                        rend_color = COLORS["up"] if detail["Rend. %"] >= 0 else COLORS["down"]
-                        
-                        with col_sym:
-                            st.markdown(f"**{detail['Símbolo']}**")
-                        with col_acc:
-                            st.markdown(f"{detail['Acciones']:.2f}")
-                        with col_pcomp:
-                            st.markdown(f"{curr_symbol}{detail['P. Compra']:.2f}")
-                        with col_pact:
-                            st.markdown(f"{curr_symbol}{detail['P. Actual']:.2f}")
-                        with col_inv:
-                            st.markdown(f"{curr_symbol}{detail['Invertido']:.2f}")
-                        with col_val:
-                            st.markdown(f"{curr_symbol}{detail['Valor']:.2f}")
-                        with col_gan:
-                            st.markdown(f"<span style='color:{gain_color};font-weight:bold;'>{curr_symbol}{detail['Ganancia']:+.2f}</span>", unsafe_allow_html=True)
-                        with col_rend:
-                            st.markdown(f"<span style='color:{rend_color};font-weight:bold;'>{detail['Rend. %']:+.1f}%</span>", unsafe_allow_html=True)
+                        with row_cols[1]:
+                            st.markdown(f"<div style='font-weight:600;font-size:0.85rem;text-align:center;padding-top:5px;'>{detail['Símbolo']}</div>", unsafe_allow_html=True)
+                        with row_cols[2]:
+                            st.markdown(f"<div style='font-family:monospace;font-size:0.8rem;text-align:center;padding-top:5px;'>{detail['Acciones']:.2f}</div>", unsafe_allow_html=True)
+                        with row_cols[3]:
+                            st.markdown(f"<div style='font-family:monospace;font-size:0.8rem;text-align:center;padding-top:5px;'>{curr_symbol}{detail['P. Compra']:.2f}</div>", unsafe_allow_html=True)
+                        with row_cols[4]:
+                            st.markdown(f"<div style='font-family:monospace;font-size:0.8rem;text-align:center;padding-top:5px;'>{curr_symbol}{detail['P. Actual']:.2f}</div>", unsafe_allow_html=True)
+                        with row_cols[5]:
+                            st.markdown(f"<div style='font-family:monospace;font-size:0.8rem;text-align:center;padding-top:5px;'>{curr_symbol}{detail['Invertido']:.2f}</div>", unsafe_allow_html=True)
+                        with row_cols[6]:
+                            st.markdown(f"<div style='font-family:monospace;font-size:0.8rem;text-align:center;padding-top:5px;'>{curr_symbol}{detail['Valor']:.2f}</div>", unsafe_allow_html=True)
+                        with row_cols[7]:
+                            st.markdown(f"<div style='font-family:monospace;font-size:0.8rem;text-align:center;padding-top:5px;color:{gain_color};font-weight:600;'>{curr_symbol}{detail['Ganancia']:+.2f}</div>", unsafe_allow_html=True)
+                        with row_cols[8]:
+                            st.markdown(f"<div style='font-family:monospace;font-size:0.8rem;text-align:center;padding-top:5px;color:{gain_color};font-weight:600;'>{detail['Rend. %']:+.2f}%</div>", unsafe_allow_html=True)
+                        with row_cols[9]:
+                            st.markdown(f"<div style='font-family:monospace;font-size:0.8rem;text-align:center;padding-top:5px;color:{day_color};font-weight:600;'>{curr_symbol}{detail['Día $']:+.2f}</div>", unsafe_allow_html=True)
+                        with row_cols[10]:
+                            st.markdown(f"<div style='font-family:monospace;font-size:0.8rem;text-align:center;padding-top:5px;color:{day_color};font-weight:600;'>{detail['Día %']:+.2f}%</div>", unsafe_allow_html=True)
                     
                     # Gráfico de distribución con color único por activo
                     pie_colors = []
