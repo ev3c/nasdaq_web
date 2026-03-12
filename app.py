@@ -673,6 +673,25 @@ TOP_CRYPTO = {
 PORTFOLIO_FILE = "portfolio.json"
 ALERTS_FILE = "alerts.json"
 PORTFOLIO_HISTORY_FILE = "portfolio_history.json"
+USER_PREFERENCES_FILE = "user_preferences.json"
+
+
+def load_user_preferences():
+    """Cargar preferencias del usuario desde archivo JSON"""
+    if os.path.exists(USER_PREFERENCES_FILE):
+        with open(USER_PREFERENCES_FILE, 'r') as f:
+            return json.load(f)
+    return {
+        "currency": "USD",
+        "sound_enabled": False,
+        "selected_period": "1M"
+    }
+
+
+def save_user_preferences(prefs):
+    """Guardar preferencias del usuario en archivo JSON"""
+    with open(USER_PREFERENCES_FILE, 'w') as f:
+        json.dump(prefs, f, indent=2)
 
 
 def load_portfolio():
@@ -1343,14 +1362,14 @@ def main():
         </style>
         """, unsafe_allow_html=True)
     
-    # Inicializar estado del sonido
-    if "sound_enabled" not in st.session_state:
-        st.session_state.sound_enabled = False
-    
-    # Inicializar estado de moneda (USD por defecto)
-    if "currency" not in st.session_state:
-        st.session_state.currency = "USD"
-    
+    # Cargar preferencias del usuario
+    if "prefs_loaded" not in st.session_state:
+        user_prefs = load_user_preferences()
+        st.session_state.sound_enabled = user_prefs.get("sound_enabled", False)
+        st.session_state.currency = user_prefs.get("currency", "USD")
+        st.session_state.selected_period = user_prefs.get("selected_period", "1M")
+        st.session_state.prefs_loaded = True
+
     # Obtener tipo de cambio EUR/USD
     eur_usd_rate = get_eur_usd_rate()
     
@@ -1384,11 +1403,19 @@ def main():
         currency_label = "💶 EUR" if st.session_state.currency == "EUR" else "💵 USD"
         if st.button(currency_label, key="toggle_currency", use_container_width=True):
             st.session_state.currency = "EUR" if st.session_state.currency == "USD" else "USD"
+            # Guardar preferencia
+            prefs = load_user_preferences()
+            prefs["currency"] = st.session_state.currency
+            save_user_preferences(prefs)
             st.rerun()
     
     with col_sound:
         if st.button("🔊 ON" if st.session_state.sound_enabled else "🔇 OFF", key="toggle_sound", use_container_width=True):
             st.session_state.sound_enabled = not st.session_state.sound_enabled
+            # Guardar preferencia
+            prefs = load_user_preferences()
+            prefs["sound_enabled"] = st.session_state.sound_enabled
+            save_user_preferences(prefs)
             if st.session_state.sound_enabled:
                 # Reproducir beep de prueba para activar el audio
                 components.html("""
@@ -1511,10 +1538,15 @@ def main():
             label_visibility="collapsed"
         )
         st.markdown('</div>', unsafe_allow_html=True)
-        
+
         # Guardar período seleccionado
-        st.session_state.selected_period = period_price
-        
+        if st.session_state.selected_period != period_price:
+            st.session_state.selected_period = period_price
+            # Guardar preferencia
+            prefs = load_user_preferences()
+            prefs["selected_period"] = period_price
+            save_user_preferences(prefs)
+
         # Obtener datos con el período seleccionado
         period_value = period_options[period_price]
         with st.spinner(""):
@@ -1796,10 +1828,14 @@ def main():
             label_visibility="collapsed"
         )
         st.markdown('</div>', unsafe_allow_html=True)
-        
+
         # Guardar período seleccionado
-        st.session_state.selected_period = period_comp
-        
+        if st.session_state.selected_period != period_comp:
+            st.session_state.selected_period = period_comp
+            prefs = load_user_preferences()
+            prefs["selected_period"] = period_comp
+            save_user_preferences(prefs)
+
         # Obtener datos con el período seleccionado
         period_comp_value = period_options_comp[period_comp]
         with st.spinner(""):
