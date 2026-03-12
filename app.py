@@ -2312,6 +2312,7 @@ def main():
                 total_prev_value = 0  # Valor al cierre anterior
                 portfolio_details = []
                 
+                position_index = 0
                 for symbol, positions in portfolio.items():
                     if symbol in all_assets:
                         asset_info = all_portfolio_data.get(symbol, {})
@@ -2319,7 +2320,7 @@ def main():
                             curr_price = asset_info["current_price"]
                             prev_close = asset_info.get("prev_close", curr_price)
                             
-                            for pos in positions:
+                            for pos_idx, pos in enumerate(positions):
                                 invested = pos["shares"] * pos["buy_price"]
                                 current = pos["shares"] * curr_price
                                 prev_value = pos["shares"] * prev_close
@@ -2335,6 +2336,8 @@ def main():
                                 total_prev_value += prev_value
                                 
                                 portfolio_details.append({
+                                    "_symbol": symbol,
+                                    "_pos_idx": pos_idx,
                                     "Símbolo": symbol,
                                     "Acciones": pos['shares'],
                                     "P. Compra": pos['buy_price'],
@@ -2346,6 +2349,7 @@ def main():
                                     "Día $": daily_gain,
                                     "Día %": daily_gain_pct
                                 })
+                                position_index += 1
                 
                 if portfolio_details:
                     # Métricas generales con colores
@@ -2389,60 +2393,43 @@ def main():
                             detail["Ganancia"] = detail["Ganancia"] / eur_usd_rate
                             detail["Día $"] = detail["Día $"] / eur_usd_rate
                     
-                    # Tabla con colores verde/rojo
-                    df = pd.DataFrame(portfolio_details)
+                    # Tabla con botones de eliminar
+                    st.markdown("**Posiciones** (pulsa ❌ para eliminar)")
                     
-                    def style_gains(val, col):
-                        if col in ['Ganancia', 'Rend. %', 'Día $', 'Día %']:
-                            color = COLORS["up"] if val >= 0 else COLORS["down"]
-                            return f'color: {color}; font-weight: bold'
-                        return ''
-                    
-                    styled_df = df.style.apply(lambda x: [style_gains(v, c) for c, v in x.items()], axis=1)
-                    styled_df = styled_df.format({
-                        'Acciones': '{:.2f}',
-                        'P. Compra': f'{curr_symbol}{{:.2f}}',
-                        'P. Actual': f'{curr_symbol}{{:.2f}}',
-                        'Invertido': f'{curr_symbol}{{:.2f}}',
-                        'Valor': f'{curr_symbol}{{:.2f}}',
-                        'Ganancia': f'{curr_symbol}{{:+.2f}}',
-                        'Rend. %': '{:+.2f}%',
-                        'Día $': f'{curr_symbol}{{:+.2f}}',
-                        'Día %': '{:+.2f}%'
-                    })
-                    
-                    st.dataframe(styled_df, use_container_width=True, hide_index=True)
-                    
-                    # Sección para eliminar activos del portfolio
-                    st.markdown("#### 🗑️ Gestionar Posiciones")
-                    
-                    # Obtener símbolos únicos del portfolio
-                    unique_symbols = list(portfolio.keys())
-                    
-                    # Crear botones de eliminar en una fila
-                    if unique_symbols:
-                        cols_delete = st.columns(min(len(unique_symbols), 4))
-                        for idx, symbol in enumerate(unique_symbols):
-                            col_idx = idx % 4
-                            with cols_delete[col_idx]:
-                                # Obtener nombre del activo
-                                if symbol in MAGNIFICENT_SEVEN:
-                                    name = MAGNIFICENT_SEVEN[symbol]['name']
-                                    color = MAGNIFICENT_SEVEN[symbol]['color']
-                                elif symbol in TOP_CRYPTO:
-                                    name = TOP_CRYPTO[symbol]['emoji'] + " " + TOP_CRYPTO[symbol]['name']
-                                    color = TOP_CRYPTO[symbol]['color']
-                                else:
-                                    name = symbol
-                                    color = "#78909C"
-                                
-                                if st.button(f"❌ {symbol}", key=f"del_portfolio_{symbol}", use_container_width=True):
-                                    del portfolio[symbol]
+                    for idx, detail in enumerate(portfolio_details):
+                        col_del, col_sym, col_acc, col_pcomp, col_pact, col_inv, col_val, col_gan, col_rend = st.columns([0.4, 0.8, 0.7, 0.8, 0.8, 0.8, 0.8, 0.9, 0.7])
+                        
+                        with col_del:
+                            if st.button("❌", key=f"del_pos_{detail['_symbol']}_{detail['_pos_idx']}_{idx}"):
+                                # Eliminar la posición
+                                sym = detail["_symbol"]
+                                pos_idx = detail["_pos_idx"]
+                                if sym in portfolio and len(portfolio[sym]) > pos_idx:
+                                    portfolio[sym].pop(pos_idx)
+                                    if len(portfolio[sym]) == 0:
+                                        del portfolio[sym]
                                     save_portfolio(portfolio)
-                                    st.toast(f"{symbol} eliminado del portfolio")
                                     st.rerun()
-                    
-                    st.markdown("---")
+                        
+                        gain_color = COLORS["up"] if detail["Ganancia"] >= 0 else COLORS["down"]
+                        rend_color = COLORS["up"] if detail["Rend. %"] >= 0 else COLORS["down"]
+                        
+                        with col_sym:
+                            st.markdown(f"**{detail['Símbolo']}**")
+                        with col_acc:
+                            st.markdown(f"{detail['Acciones']:.2f}")
+                        with col_pcomp:
+                            st.markdown(f"{curr_symbol}{detail['P. Compra']:.2f}")
+                        with col_pact:
+                            st.markdown(f"{curr_symbol}{detail['P. Actual']:.2f}")
+                        with col_inv:
+                            st.markdown(f"{curr_symbol}{detail['Invertido']:.2f}")
+                        with col_val:
+                            st.markdown(f"{curr_symbol}{detail['Valor']:.2f}")
+                        with col_gan:
+                            st.markdown(f"<span style='color:{gain_color};font-weight:bold;'>{curr_symbol}{detail['Ganancia']:+.2f}</span>", unsafe_allow_html=True)
+                        with col_rend:
+                            st.markdown(f"<span style='color:{rend_color};font-weight:bold;'>{detail['Rend. %']:+.1f}%</span>", unsafe_allow_html=True)
                     
                     # Gráfico de distribución con color único por activo
                     pie_colors = []
