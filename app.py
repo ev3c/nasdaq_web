@@ -665,7 +665,8 @@ TOP_CRYPTO = {
     "ETH-USD": {"name": "Ethereum", "emoji": "⟠", "color": "#627EEA"},          # Azul Ethereum
     "BNB-USD": {"name": "Binance Coin", "emoji": "🔶", "color": "#F3BA2F"},     # Amarillo Binance
     "XRP-USD": {"name": "XRP (Ripple)", "emoji": "💧", "color": "#00AAE4"},     # Azul Ripple
-    "SOL-USD": {"name": "Solana", "emoji": "◎", "color": "#9945FF"}             # Púrpura Solana
+    "SOL-USD": {"name": "Solana", "emoji": "◎", "color": "#9945FF"},            # Púrpura Solana
+    "DOGE-USD": {"name": "Dogecoin", "emoji": "🐕", "color": "#C2A633"}         # Dorado Doge
 }
 
 PORTFOLIO_FILE = "portfolio.json"
