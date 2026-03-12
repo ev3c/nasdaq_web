@@ -684,6 +684,7 @@ def load_user_preferences():
     return {
         "currency": "USD",
         "sound_enabled": False,
+        "auto_refresh": False,
         "selected_period": "1M"
     }
 
@@ -1345,28 +1346,12 @@ def main():
     # Actualizar estado
     st.session_state.active_tab = selected_tab
     
-    # Leer estado de auto-refresh desde query params
-    query_params = st.query_params
-    auto_refresh_default = query_params.get("autorefresh", "0") == "1"
-    
-    # Checkbox de auto-actualización con cuenta atrás en la misma línea
-    if auto_refresh_default:
-        # Mostrar checkbox y cuenta atrás juntos
-        st.markdown("""
-        <style>
-        .auto-refresh-container {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        </style>
-        """, unsafe_allow_html=True)
-    
     # Cargar preferencias del usuario
     if "prefs_loaded" not in st.session_state:
         user_prefs = load_user_preferences()
         st.session_state.sound_enabled = user_prefs.get("sound_enabled", False)
         st.session_state.currency = user_prefs.get("currency", "USD")
+        st.session_state.auto_refresh = user_prefs.get("auto_refresh", False)
         st.session_state.selected_period = user_prefs.get("selected_period", "1M")
         st.session_state.prefs_loaded = True
 
@@ -1390,14 +1375,18 @@ def main():
     </style>
     """, unsafe_allow_html=True)
     
-    # Fila 1: Auto-refresh y countdown
-    col_check, col_countdown, col_space = st.columns([1.1, 0.35, 4.55])
+    # Fila de botones: Auto-refresh, countdown, moneda, sonido
+    col_refresh, col_countdown, col_space, col_currency, col_sound = st.columns([1.2, 0.4, 2.4, 0.7, 0.8])
     
-    with col_check:
-        auto_refresh = st.checkbox("🔄 Actualizar cada 5 minutos", value=auto_refresh_default, key="auto_refresh")
-    
-    # Fila 2: Botón de moneda y sonido alineados a la derecha
-    col_space, col_currency, col_sound = st.columns([3.5, 0.7, 0.8])
+    with col_refresh:
+        refresh_label = "🔄 5min ON" if st.session_state.auto_refresh else "🔄 5min OFF"
+        if st.button(refresh_label, key="toggle_refresh", use_container_width=True):
+            st.session_state.auto_refresh = not st.session_state.auto_refresh
+            # Guardar preferencia
+            prefs = load_user_preferences()
+            prefs["auto_refresh"] = st.session_state.auto_refresh
+            save_user_preferences(prefs)
+            st.rerun()
     
     with col_currency:
         currency_label = "💶 EUR" if st.session_state.currency == "EUR" else "💵 USD"
@@ -1436,7 +1425,8 @@ def main():
                 """, height=0)
             st.rerun()
     
-    # Actualizar query params según el estado del checkbox
+    # Auto-refresh con cuenta atrás
+    auto_refresh = st.session_state.auto_refresh
     if auto_refresh:
         st.query_params["autorefresh"] = "1"
         
@@ -1483,7 +1473,7 @@ def main():
                 }, 1000);
             </script>
             """, height=38)
-    elif "autorefresh" in query_params:
+    elif "autorefresh" in st.query_params:
         del st.query_params["autorefresh"]
     
     st.markdown("---")
