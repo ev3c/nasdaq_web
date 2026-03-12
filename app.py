@@ -1312,7 +1312,7 @@ def main():
     st.markdown("""
     <div class="main-header-responsive" style="text-align: center; padding: 0.3rem 0; margin-bottom: 0.3rem;">
         <h1 style="font-size: clamp(1.1rem, 4vw, 1.6rem) !important; margin: 0 !important; line-height: 1.2;">
-            NASDAQ Magnificent 7 & Crypto 7 <span style="font-size: 0.6em; color: #9E9E9E; font-weight: 400;">v1.0</span>
+            NASDAQ Magnificent 7 & Crypto 7 <span style="font-size: 0.6em; color: #9E9E9E; font-weight: 400;">v1.1</span>
         </h1>
     </div>
     """, unsafe_allow_html=True)
