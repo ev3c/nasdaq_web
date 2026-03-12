@@ -2150,6 +2150,23 @@ def main():
                     format_func=lambda x: f"{x} - {MAGNIFICENT_SEVEN[x]['name']}",
                     key="portfolio_symbol_stock"
                 )
+                
+                shares = st.number_input("Número de acciones", min_value=0.0, value=1.0, step=0.1)
+                buy_price = st.number_input("Precio de compra ($)", min_value=0.0, value=100.0, step=1.0)
+                buy_date = st.date_input("Fecha de compra", value=datetime.now())
+                
+                if st.button("Guardar Posición", use_container_width=True):
+                    if port_symbol not in portfolio:
+                        portfolio[port_symbol] = []
+                    
+                    portfolio[port_symbol].append({
+                        "shares": shares,
+                        "buy_price": buy_price,
+                        "buy_date": buy_date.strftime("%Y-%m-%d")
+                    })
+                    
+                    save_portfolio(portfolio)
+                    st.success("Posición guardada correctamente")
             else:
                 port_symbol = st.selectbox(
                     "Criptomoneda",
@@ -2157,28 +2174,32 @@ def main():
                     format_func=lambda x: f"{TOP_CRYPTO[x]['emoji']} {TOP_CRYPTO[x]['name']}",
                     key="portfolio_symbol_crypto"
                 )
-            
-            # Etiqueta diferente según tipo de activo
-            if asset_type == "📈 Acciones":
-                shares = st.number_input("Número de acciones", min_value=0.0, value=1.0, step=0.1)
-            else:
-                shares = st.number_input("Cantidad", min_value=0.0, value=0.1, step=0.01, format="%.4f")
-            
-            buy_price = st.number_input("Precio de compra ($)", min_value=0.0, value=100.0, step=1.0)
-            buy_date = st.date_input("Fecha de compra", value=datetime.now())
-            
-            if st.button("Guardar Posición", use_container_width=True):
-                if port_symbol not in portfolio:
-                    portfolio[port_symbol] = []
                 
-                portfolio[port_symbol].append({
-                    "shares": shares,
-                    "buy_price": buy_price,
-                    "buy_date": buy_date.strftime("%Y-%m-%d")
-                })
+                crypto_amount = st.number_input("Importe invertido ($)", min_value=0.0, value=100.0, step=10.0)
+                buy_date = st.date_input("Fecha de compra", value=datetime.now(), key="crypto_date")
                 
-                save_portfolio(portfolio)
-                st.success("Posición guardada correctamente")
+                if st.button("Guardar Crypto", use_container_width=True):
+                    # Obtener precio actual de la cripto para calcular unidades
+                    with st.spinner(""):
+                        crypto_price_data = get_stock_data([port_symbol], "1d")
+                    
+                    if crypto_price_data.get(port_symbol) and crypto_price_data[port_symbol].get("current_price"):
+                        current_crypto_price = crypto_price_data[port_symbol]["current_price"]
+                        crypto_units = crypto_amount / current_crypto_price
+                        
+                        if port_symbol not in portfolio:
+                            portfolio[port_symbol] = []
+                        
+                        portfolio[port_symbol].append({
+                            "shares": crypto_units,
+                            "buy_price": current_crypto_price,
+                            "buy_date": buy_date.strftime("%Y-%m-%d")
+                        })
+                        
+                        save_portfolio(portfolio)
+                        st.success(f"Guardado: {crypto_units:.6f} {TOP_CRYPTO[port_symbol]['name']}")
+                    else:
+                        st.error("No se pudo obtener el precio de la cripto")
         
         with col2:
             st.markdown("#### Resumen del Portfolio")
@@ -2224,7 +2245,7 @@ def main():
                                 
                                 portfolio_details.append({
                                     "Símbolo": symbol,
-                                    "Cantidad": pos['shares'],
+                                    "Acciones": pos['shares'],
                                     "P. Compra": pos['buy_price'],
                                     "P. Actual": curr_price,
                                     "Invertido": invested,
@@ -2271,7 +2292,7 @@ def main():
                     
                     styled_df = df.style.apply(lambda x: [style_gains(v, c) for c, v in x.items()], axis=1)
                     styled_df = styled_df.format({
-                        'Cantidad': '{:.4f}',
+                        'Acciones': '{:.2f}',
                         'P. Compra': '${:.2f}',
                         'P. Actual': '${:.2f}',
                         'Invertido': '${:.2f}',
