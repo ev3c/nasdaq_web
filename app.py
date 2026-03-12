@@ -2199,6 +2199,9 @@ def main():
                 label_visibility="collapsed"
             )
             
+            # Mostrar moneda actual para los inputs
+            currency_label = "€" if st.session_state.currency == "EUR" else "$"
+            
             if asset_type == "📈 Acciones":
                 port_symbol = st.selectbox(
                     "Acción",
@@ -2208,21 +2211,24 @@ def main():
                 )
                 
                 shares = st.number_input("Número de acciones", min_value=0.0, value=1.0, step=0.1)
-                buy_price = st.number_input("Precio de compra ($)", min_value=0.0, value=100.0, step=1.0)
+                buy_price = st.number_input(f"Precio de compra ({currency_label})", min_value=0.0, value=100.0, step=1.0)
                 buy_date = st.date_input("Fecha de compra", value=datetime.now())
                 
                 if st.button("Guardar Posición", use_container_width=True):
+                    # Convertir a USD si está en EUR
+                    price_usd = buy_price * eur_usd_rate if st.session_state.currency == "EUR" else buy_price
+                    
                     if port_symbol not in portfolio:
                         portfolio[port_symbol] = []
                     
                     portfolio[port_symbol].append({
                         "shares": shares,
-                        "buy_price": buy_price,
+                        "buy_price": price_usd,
                         "buy_date": buy_date.strftime("%Y-%m-%d")
                     })
                     
                     save_portfolio(portfolio)
-                    st.success("Posición guardada correctamente")
+                    st.success(f"Guardado: {shares} acciones a {currency_label}{buy_price:.2f}")
             else:
                 port_symbol = st.selectbox(
                     "Criptomoneda",
@@ -2231,17 +2237,20 @@ def main():
                     key="portfolio_symbol_crypto"
                 )
                 
-                crypto_amount = st.number_input("Importe invertido ($)", min_value=0.0, value=100.0, step=10.0)
+                crypto_amount = st.number_input(f"Importe invertido ({currency_label})", min_value=0.0, value=100.0, step=10.0)
                 buy_date = st.date_input("Fecha de compra", value=datetime.now(), key="crypto_date")
                 
                 if st.button("Guardar Crypto", use_container_width=True):
+                    # Convertir a USD si está en EUR
+                    amount_usd = crypto_amount * eur_usd_rate if st.session_state.currency == "EUR" else crypto_amount
+                    
                     # Obtener precio actual de la cripto para calcular unidades
                     with st.spinner(""):
                         crypto_price_data = get_stock_data([port_symbol], "1d")
                     
                     if crypto_price_data.get(port_symbol) and crypto_price_data[port_symbol].get("current_price"):
                         current_crypto_price = crypto_price_data[port_symbol]["current_price"]
-                        crypto_units = crypto_amount / current_crypto_price
+                        crypto_units = amount_usd / current_crypto_price
                         
                         if port_symbol not in portfolio:
                             portfolio[port_symbol] = []
@@ -2253,7 +2262,7 @@ def main():
                         })
                         
                         save_portfolio(portfolio)
-                        st.success(f"Guardado: {crypto_units:.6f} {TOP_CRYPTO[port_symbol]['name']}")
+                        st.success(f"Guardado: {crypto_units:.6f} {TOP_CRYPTO[port_symbol]['name']} ({currency_label}{crypto_amount:.2f})")
                     else:
                         st.error("No se pudo obtener el precio de la cripto")
         
