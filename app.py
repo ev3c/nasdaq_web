@@ -2413,6 +2413,37 @@ def main():
                     
                     st.dataframe(styled_df, use_container_width=True, hide_index=True)
                     
+                    # Sección para eliminar activos del portfolio
+                    st.markdown("#### 🗑️ Gestionar Posiciones")
+                    
+                    # Obtener símbolos únicos del portfolio
+                    unique_symbols = list(portfolio.keys())
+                    
+                    # Crear botones de eliminar en una fila
+                    if unique_symbols:
+                        cols_delete = st.columns(min(len(unique_symbols), 4))
+                        for idx, symbol in enumerate(unique_symbols):
+                            col_idx = idx % 4
+                            with cols_delete[col_idx]:
+                                # Obtener nombre del activo
+                                if symbol in MAGNIFICENT_SEVEN:
+                                    name = MAGNIFICENT_SEVEN[symbol]['name']
+                                    color = MAGNIFICENT_SEVEN[symbol]['color']
+                                elif symbol in TOP_CRYPTO:
+                                    name = TOP_CRYPTO[symbol]['emoji'] + " " + TOP_CRYPTO[symbol]['name']
+                                    color = TOP_CRYPTO[symbol]['color']
+                                else:
+                                    name = symbol
+                                    color = "#78909C"
+                                
+                                if st.button(f"❌ {symbol}", key=f"del_portfolio_{symbol}", use_container_width=True):
+                                    del portfolio[symbol]
+                                    save_portfolio(portfolio)
+                                    st.toast(f"{symbol} eliminado del portfolio")
+                                    st.rerun()
+                    
+                    st.markdown("---")
+                    
                     # Gráfico de distribución con color único por activo
                     pie_colors = []
                     for d in portfolio_details:
