@@ -721,6 +721,37 @@ def save_daily_snapshot(total_invested, total_current, total_gain, total_gain_pc
     save_portfolio_history(history)
 
 
+@st.cache_data(ttl=3600)
+def get_eur_usd_rate():
+    """Obtener tipo de cambio EUR/USD"""
+    try:
+        ticker = yf.Ticker("EURUSD=X")
+        data = ticker.history(period="1d")
+        if len(data) > 0:
+            return data['Close'].iloc[-1]
+    except:
+        pass
+    return 1.08  # Valor por defecto aproximado
+
+
+def format_currency(value, currency="USD", eur_rate=1.0, decimals=2):
+    """Formatear valor según la moneda seleccionada"""
+    if currency == "EUR":
+        converted = value / eur_rate
+        if abs(converted) >= 1000:
+            return f"€{converted:,.{decimals}f}"
+        return f"€{converted:.{decimals}f}"
+    else:
+        if abs(value) >= 1000:
+            return f"${value:,.{decimals}f}"
+        return f"${value:.{decimals}f}"
+
+
+def get_currency_symbol(currency="USD"):
+    """Obtener símbolo de moneda"""
+    return "€" if currency == "EUR" else "$"
+
+
 def load_alerts():
     """Cargar alertas desde archivo JSON"""
     if os.path.exists(ALERTS_FILE):
@@ -1316,6 +1347,13 @@ def main():
     if "sound_enabled" not in st.session_state:
         st.session_state.sound_enabled = False
     
+    # Inicializar estado de moneda (USD por defecto)
+    if "currency" not in st.session_state:
+        st.session_state.currency = "USD"
+    
+    # Obtener tipo de cambio EUR/USD
+    eur_usd_rate = get_eur_usd_rate()
+    
     # CSS para botón de sonido pequeño y centrado
     st.markdown("""
     <style>
@@ -1339,8 +1377,15 @@ def main():
     with col_check:
         auto_refresh = st.checkbox("🔄 Actualizar cada 5 minutos", value=auto_refresh_default, key="auto_refresh")
     
-    # Fila 2: Botón de sonido alineado a la derecha
-    col_space, col_sound = st.columns([4, 1])
+    # Fila 2: Botón de moneda y sonido alineados a la derecha
+    col_space, col_currency, col_sound = st.columns([3.5, 0.7, 0.8])
+    
+    with col_currency:
+        currency_label = "💶 EUR" if st.session_state.currency == "EUR" else "💵 USD"
+        if st.button(currency_label, key="toggle_currency", use_container_width=True):
+            st.session_state.currency = "EUR" if st.session_state.currency == "USD" else "USD"
+            st.rerun()
+    
     with col_sound:
         if st.button("🔊 ON" if st.session_state.sound_enabled else "🔇 OFF", key="toggle_sound", use_container_width=True):
             st.session_state.sound_enabled = not st.session_state.sound_enabled
@@ -1417,6 +1462,9 @@ def main():
     st.markdown("---")
     
     # TAB 1: Dashboard
+    # Símbolo de moneda actual
+    curr_symbol = get_currency_symbol(st.session_state.currency)
+    
     if selected_tab == "📊 Dashboard":
         st.markdown("### 💹 Resumen")
         
@@ -1430,7 +1478,10 @@ def main():
                 change_color = COLORS["up"] if change >= 0 else COLORS["down"]
                 arrow = "▲" if change >= 0 else "▼"
                 
-                item = f'<div style="display:flex;flex-direction:column;align-items:center;background:white;padding:8px 10px;border-radius:10px;border:1px solid #ECEFF1;box-shadow:0 2px 8px rgba(0,0,0,0.04);min-width:80px;"><span style="font-weight:700;color:#37474F;font-size:0.85rem;">{symbol}</span><span style="font-family:monospace;font-weight:600;color:#37474F;font-size:0.9rem;">${current:.2f}</span><span style="font-family:monospace;font-weight:600;color:{change_color};font-size:0.8rem;">{arrow}{change:+.2f}%</span></div>'
+                # Convertir a EUR si es necesario
+                display_price = current / eur_usd_rate if st.session_state.currency == "EUR" else current
+                
+                item = f'<div style="display:flex;flex-direction:column;align-items:center;background:white;padding:8px 10px;border-radius:10px;border:1px solid #ECEFF1;box-shadow:0 2px 8px rgba(0,0,0,0.04);min-width:80px;"><span style="font-weight:700;color:#37474F;font-size:0.85rem;">{symbol}</span><span style="font-family:monospace;font-weight:600;color:#37474F;font-size:0.9rem;">{curr_symbol}{display_price:.2f}</span><span style="font-family:monospace;font-weight:600;color:{change_color};font-size:0.8rem;">{arrow}{change:+.2f}%</span></div>'
                 items_html.append(item)
             else:
                 item = f'<div style="display:flex;flex-direction:column;align-items:center;background:white;padding:8px 10px;border-radius:10px;border:1px solid #ECEFF1;min-width:80px;"><span style="font-weight:700;color:#37474F;font-size:0.85rem;">{symbol}</span><span style="color:#78909C;">Error</span></div>'
@@ -1527,15 +1578,18 @@ def main():
                 change_color = COLORS["up"] if change >= 0 else COLORS["down"]
                 arrow = "▲" if change >= 0 else "▼"
                 crypto_info = TOP_CRYPTO[symbol]
+
+                # Convertir a EUR si es necesario
+                display_price = current / eur_usd_rate if st.session_state.currency == "EUR" else current
                 
                 # Formatear precio según el valor
-                if current >= 1000:
-                    price_fmt = f"${current:,.0f}"
-                elif current >= 1:
-                    price_fmt = f"${current:,.2f}"
+                if display_price >= 1000:
+                    price_fmt = f"{curr_symbol}{display_price:,.0f}"
+                elif display_price >= 1:
+                    price_fmt = f"{curr_symbol}{display_price:,.2f}"
                 else:
-                    price_fmt = f"${current:.4f}"
-                
+                    price_fmt = f"{curr_symbol}{display_price:.4f}"
+
                 item = f'''<div style="display:flex;flex-direction:column;align-items:center;background:white;padding:10px 12px;border-radius:12px;border:2px solid {crypto_info['color']}20;box-shadow:0 2px 8px rgba(0,0,0,0.04);min-width:100px;">
                     <span style="font-size:1.2rem;">{crypto_info['emoji']}</span>
                     <span style="font-weight:700;color:#37474F;font-size:0.85rem;">{crypto_info['name']}</span>
