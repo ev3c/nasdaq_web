@@ -1399,7 +1399,7 @@ def main():
             st.rerun()
     
     with col_sound:
-        if st.button("🔊 ON" if st.session_state.sound_enabled else "🔇 OFF", key="toggle_sound", use_container_width=True):
+        if st.button("🔊 Alertas ON" if st.session_state.sound_enabled else "🔇 Alertas OFF", key="toggle_sound", use_container_width=True):
             st.session_state.sound_enabled = not st.session_state.sound_enabled
             # Guardar preferencia
             prefs = load_user_preferences()
