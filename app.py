@@ -659,6 +659,15 @@ MAGNIFICENT_SEVEN = {
     "TSLA": {"name": "Tesla", "emoji": "🚗", "color": "#E84545"}                # Rojo Tesla
 }
 
+# Top 5 Criptomonedas
+TOP_CRYPTO = {
+    "BTC-USD": {"name": "Bitcoin", "emoji": "₿", "color": "#F7931A"},           # Naranja Bitcoin
+    "ETH-USD": {"name": "Ethereum", "emoji": "⟠", "color": "#627EEA"},          # Azul Ethereum
+    "BNB-USD": {"name": "Binance Coin", "emoji": "🔶", "color": "#F3BA2F"},     # Amarillo Binance
+    "XRP-USD": {"name": "XRP (Ripple)", "emoji": "💧", "color": "#00AAE4"},     # Azul Ripple
+    "SOL-USD": {"name": "Solana", "emoji": "◎", "color": "#9945FF"}             # Púrpura Solana
+}
+
 PORTFOLIO_FILE = "portfolio.json"
 ALERTS_FILE = "alerts.json"
 PORTFOLIO_HISTORY_FILE = "portfolio_history.json"
@@ -1270,7 +1279,7 @@ def main():
         st.session_state.selected_period = "1M"  # Por defecto 1 mes
     
     # Navegación por pestañas (mantiene el estado)
-    tabs_options = ["📊 Dashboard", "📈 Comparativas", "🔔 Alertas", "💰 Portfolio"]
+    tabs_options = ["📊 Dashboard", "🪙 Crypto", "📈 Comparativas", "🔔 Alertas", "💰 Portfolio"]
     
     selected_tab = st.radio(
         "Navegación",
@@ -1495,8 +1504,222 @@ def main():
             styled_df = df.style.applymap(color_change, subset=['Cambio'])
             styled_df = styled_df.format({'Cambio': '{:+.2f}%'})
             st.dataframe(styled_df, use_container_width=True, hide_index=True)
-    
-    # TAB 2: Comparativas
+
+    # TAB 2: Crypto
+    if selected_tab == "🪙 Crypto":
+        st.markdown("### 🪙 Top 5 Criptomonedas")
+        
+        crypto_symbols = list(TOP_CRYPTO.keys())
+        
+        # Obtener datos de criptomonedas
+        with st.spinner("📡 Obteniendo datos de criptomonedas..."):
+            crypto_data = get_stock_data(crypto_symbols, "1mo")
+        
+        # Métricas de criptomonedas en una línea
+        crypto_items_html = []
+        for symbol in crypto_symbols:
+            if crypto_data.get(symbol):
+                current = crypto_data[symbol]["current_price"]
+                prev = crypto_data[symbol]["prev_close"]
+                change = calculate_change(current, prev)
+                change_color = COLORS["up"] if change >= 0 else COLORS["down"]
+                arrow = "▲" if change >= 0 else "▼"
+                crypto_info = TOP_CRYPTO[symbol]
+                
+                # Formatear precio según el valor
+                if current >= 1000:
+                    price_fmt = f"${current:,.0f}"
+                elif current >= 1:
+                    price_fmt = f"${current:,.2f}"
+                else:
+                    price_fmt = f"${current:.4f}"
+                
+                item = f'''<div style="display:flex;flex-direction:column;align-items:center;background:white;padding:10px 12px;border-radius:12px;border:2px solid {crypto_info['color']}20;box-shadow:0 2px 8px rgba(0,0,0,0.04);min-width:100px;">
+                    <span style="font-size:1.2rem;">{crypto_info['emoji']}</span>
+                    <span style="font-weight:700;color:#37474F;font-size:0.85rem;">{crypto_info['name']}</span>
+                    <span style="font-family:monospace;font-weight:600;color:#37474F;font-size:0.95rem;">{price_fmt}</span>
+                    <span style="font-family:monospace;font-weight:600;color:{change_color};font-size:0.85rem;">{arrow}{change:+.2f}%</span>
+                </div>'''
+                crypto_items_html.append(item)
+        
+        html_content = '<div style="display:flex;flex-wrap:wrap;gap:10px;justify-content:flex-start;">' + ''.join(crypto_items_html) + '</div>'
+        st.markdown(html_content, unsafe_allow_html=True)
+        
+        st.markdown("---")
+        
+        # Selector de período para gráfico
+        crypto_period_options = {
+            "1D": "1d", "5D": "5d", "1M": "1mo", "3M": "3mo", 
+            "6M": "6mo", "1A": "1y", "2A": "2y"
+        }
+        
+        st.markdown("#### 📈 Evolución de Precios")
+        
+        st.markdown('<div class="period-selector">', unsafe_allow_html=True)
+        crypto_period = st.radio(
+            "Período Crypto",
+            options=list(crypto_period_options.keys()),
+            index=2,  # 1M por defecto
+            key="crypto_period",
+            horizontal=True,
+            label_visibility="collapsed"
+        )
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+        # Obtener datos con el período seleccionado
+        crypto_period_value = crypto_period_options[crypto_period]
+        with st.spinner(""):
+            crypto_chart_data = get_stock_data(crypto_symbols, crypto_period_value)
+        
+        # Gráfico de precios de criptomonedas
+        fig_crypto = go.Figure()
+        
+        for symbol in crypto_symbols:
+            if crypto_chart_data.get(symbol) and len(crypto_chart_data[symbol]["history"]) > 0:
+                hist = crypto_chart_data[symbol]["history"]
+                first_price = hist['Close'].iloc[0]
+                last_price = hist['Close'].iloc[-1]
+                change = ((last_price - first_price) / first_price) * 100
+                line_color = TOP_CRYPTO[symbol]['color']
+                arrow = "▲" if change >= 0 else "▼"
+                
+                fig_crypto.add_trace(go.Scatter(
+                    x=hist.index,
+                    y=hist['Close'],
+                    mode='lines',
+                    name=f"{TOP_CRYPTO[symbol]['name']} {arrow} {change:+.1f}%",
+                    line=dict(color=line_color, width=3),
+                    hovertemplate=f"<b>{TOP_CRYPTO[symbol]['name']}</b><br>" +
+                                 "Fecha: %{x|%d/%m/%Y}<br>" +
+                                 "Precio: $%{y:,.2f}<extra></extra>"
+                ))
+        
+        fig_crypto.update_layout(
+            template='plotly_white',
+            paper_bgcolor='rgba(255,255,255,0)',
+            plot_bgcolor='rgba(253,246,240,0.5)',
+            hovermode='x unified',
+            legend=dict(
+                orientation="h",
+                yanchor="bottom",
+                y=1.02,
+                xanchor="center",
+                x=0.5,
+                font=dict(color='#37474F', size=9, family='Nunito'),
+                itemwidth=30
+            ),
+            xaxis=dict(
+                showgrid=True,
+                gridwidth=1,
+                gridcolor='rgba(0,0,0,0.06)',
+                tickfont=dict(color='#78909C', family='Nunito', size=10)
+            ),
+            yaxis=dict(
+                showgrid=True,
+                gridwidth=1,
+                gridcolor='rgba(0,0,0,0.06)',
+                tickfont=dict(color='#78909C', family='Nunito', size=10),
+                tickprefix="$"
+            ),
+            margin=dict(l=10, r=10, t=50, b=10),
+            autosize=True
+        )
+        
+        st.plotly_chart(fig_crypto, use_container_width=True)
+        
+        # Gráfico comparativo normalizado
+        st.markdown("#### 📊 Comparativa de Rendimiento (%)")
+        
+        fig_crypto_comp = go.Figure()
+        
+        for symbol in crypto_symbols:
+            if crypto_chart_data.get(symbol) and len(crypto_chart_data[symbol]["history"]) > 0:
+                hist = crypto_chart_data[symbol]["history"]
+                normalized = (hist['Close'] / hist['Close'].iloc[0] - 1) * 100
+                final_change = normalized.iloc[-1]
+                line_color = TOP_CRYPTO[symbol]['color']
+                arrow = "▲" if final_change >= 0 else "▼"
+                
+                fig_crypto_comp.add_trace(go.Scatter(
+                    x=hist.index,
+                    y=normalized,
+                    mode='lines',
+                    name=f"{TOP_CRYPTO[symbol]['name']} {arrow} {final_change:+.1f}%",
+                    line=dict(color=line_color, width=3),
+                    hovertemplate=f"<b>{TOP_CRYPTO[symbol]['name']}</b><br>" +
+                                 "Fecha: %{x|%d/%m/%Y}<br>" +
+                                 "Cambio: %{y:.2f}%<extra></extra>"
+                ))
+        
+        fig_crypto_comp.update_layout(
+            template='plotly_white',
+            paper_bgcolor='rgba(255,255,255,0)',
+            plot_bgcolor='rgba(253,246,240,0.5)',
+            hovermode='x unified',
+            legend=dict(
+                orientation="h",
+                yanchor="bottom",
+                y=1.02,
+                xanchor="center",
+                x=0.5,
+                font=dict(color='#37474F', size=9, family='Nunito'),
+                itemwidth=30
+            ),
+            xaxis=dict(
+                showgrid=True,
+                gridwidth=1,
+                gridcolor='rgba(0,0,0,0.06)',
+                tickfont=dict(color='#78909C', family='Nunito', size=10)
+            ),
+            yaxis=dict(
+                showgrid=True,
+                gridwidth=1,
+                gridcolor='rgba(0,0,0,0.06)',
+                tickfont=dict(color='#78909C', family='Nunito', size=10),
+                ticksuffix="%",
+                zeroline=True,
+                zerolinecolor='rgba(0,0,0,0.15)',
+                zerolinewidth=2
+            ),
+            margin=dict(l=10, r=10, t=30, b=10),
+            autosize=True
+        )
+        
+        st.plotly_chart(fig_crypto_comp, use_container_width=True)
+        
+        # Tabla de datos
+        st.markdown("#### 📋 Datos Detallados")
+        crypto_table_data = []
+        for symbol in crypto_symbols:
+            if crypto_data.get(symbol):
+                d = crypto_data[symbol]
+                change = calculate_change(d["current_price"], d["prev_close"])
+                crypto_table_data.append({
+                    "Crypto": TOP_CRYPTO[symbol]["name"],
+                    "Precio": d['current_price'],
+                    "Cambio %": change,
+                    "Cap. Mercado": format_market_cap(d["market_cap"]) if d["market_cap"] else "-",
+                    "24h Max": f"${d['52w_high']:,.2f}" if d['52w_high'] else "-",
+                    "24h Min": f"${d['52w_low']:,.2f}" if d['52w_low'] else "-",
+                })
+        
+        if crypto_table_data:
+            df_crypto = pd.DataFrame(crypto_table_data)
+            
+            def color_crypto_change(val):
+                if isinstance(val, (int, float)):
+                    color = COLORS["up"] if val >= 0 else COLORS["down"]
+                    return f'color: {color}; font-weight: bold'
+                return ''
+            
+            styled_crypto = df_crypto.style.applymap(color_crypto_change, subset=['Cambio %'])
+            styled_crypto = styled_crypto.format({
+                'Precio': '${:,.2f}',
+                'Cambio %': '{:+.2f}%'
+            })
+            st.dataframe(styled_crypto, use_container_width=True, hide_index=True)
+
+    # TAB 3: Comparativas (Acciones)
     if selected_tab == "📈 Comparativas":
         # Selector de período para comparativas (usa el mismo período que Dashboard)
         period_options_comp = {
@@ -1570,7 +1793,7 @@ def main():
             </div>
             """, unsafe_allow_html=True)
     
-    # TAB 3: Alertas
+    # TAB 4: Alertas
     if selected_tab == "🔔 Alertas":
         st.markdown("### 🔔 Sistema de Alertas")
         st.markdown("Configura alertas de precio para recibir notificaciones cuando se alcancen tus objetivos.")
@@ -1892,7 +2115,7 @@ def main():
                 except Exception as e:
                     st.error(f"Error al importar: {e}")
     
-    # TAB 4: Portfolio
+    # TAB 5: Portfolio
     if selected_tab == "💰 Portfolio":
         st.markdown("### Gestión de Portfolio")
         st.markdown("Registra tus inversiones y haz seguimiento de tu rendimiento.")
