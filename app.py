@@ -2307,54 +2307,98 @@ def main():
                 all_portfolio_data = {**stock_data, **crypto_data_portfolio}
                 all_assets = {**MAGNIFICENT_SEVEN, **TOP_CRYPTO}
                 
+                # Totales generales
                 total_invested = 0
                 total_current = 0
-                total_prev_value = 0  # Valor al cierre anterior
+                total_prev_value = 0
+                
+                # Totales para acciones
+                stocks_invested = 0
+                stocks_current = 0
+                stocks_prev_value = 0
+                
+                # Totales para criptos
+                crypto_invested = 0
+                crypto_current = 0
+                crypto_prev_value = 0
+                
                 portfolio_details = []
                 
                 for symbol, positions in portfolio.items():
-                    if symbol in all_assets:
+                    # Incluir tanto acciones como criptos
+                    if symbol in all_assets or symbol in TOP_CRYPTO or symbol in MAGNIFICENT_SEVEN:
                         asset_info = all_portfolio_data.get(symbol, {})
+                        is_crypto = symbol in TOP_CRYPTO
+                        
+                        # Obtener precio actual o usar precio de compra como fallback
                         if asset_info and asset_info.get("current_price"):
                             curr_price = asset_info["current_price"]
                             prev_close = asset_info.get("prev_close", curr_price)
+                        else:
+                            # Si no hay datos, usar precio de compra
+                            curr_price = positions[0]["buy_price"] if positions else 0
+                            prev_close = curr_price
+                        
+                        for pos_idx, pos in enumerate(positions):
+                            invested = pos["shares"] * pos["buy_price"]
+                            current = pos["shares"] * curr_price
+                            prev_value = pos["shares"] * prev_close
+                            gain = current - invested
+                            gain_pct = (gain / invested) * 100 if invested > 0 else 0
                             
-                            for pos_idx, pos in enumerate(positions):
-                                invested = pos["shares"] * pos["buy_price"]
-                                current = pos["shares"] * curr_price
-                                prev_value = pos["shares"] * prev_close
-                                gain = current - invested
-                                gain_pct = (gain / invested) * 100 if invested > 0 else 0
-                                
-                                # Ganancia del día
-                                daily_gain = current - prev_value
-                                daily_gain_pct = ((curr_price - prev_close) / prev_close) * 100 if prev_close > 0 else 0
-                                
-                                total_invested += invested
-                                total_current += current
-                                total_prev_value += prev_value
-                                
-                                portfolio_details.append({
-                                    "symbol_key": symbol,
-                                    "pos_index": pos_idx,
-                                    "Símbolo": symbol,
-                                    "Acciones": pos['shares'],
-                                    "P. Compra": pos['buy_price'],
-                                    "P. Actual": curr_price,
-                                    "Invertido": invested,
-                                    "Valor": current,
-                                    "Ganancia": gain,
-                                    "Rend. %": gain_pct,
-                                    "Día $": daily_gain,
-                                    "Día %": daily_gain_pct
-                                })
+                            # Ganancia del día
+                            daily_gain = current - prev_value
+                            daily_gain_pct = ((curr_price - prev_close) / prev_close) * 100 if prev_close > 0 else 0
+                            
+                            # Acumular totales generales
+                            total_invested += invested
+                            total_current += current
+                            total_prev_value += prev_value
+                            
+                            # Acumular por tipo
+                            if is_crypto:
+                                crypto_invested += invested
+                                crypto_current += current
+                                crypto_prev_value += prev_value
+                            else:
+                                stocks_invested += invested
+                                stocks_current += current
+                                stocks_prev_value += prev_value
+                            
+                            portfolio_details.append({
+                                "symbol_key": symbol,
+                                "pos_index": pos_idx,
+                                "Símbolo": symbol,
+                                "Acciones": pos['shares'],
+                                "P. Compra": pos['buy_price'],
+                                "P. Actual": curr_price,
+                                "Invertido": invested,
+                                "Valor": current,
+                                "Ganancia": gain,
+                                "Rend. %": gain_pct,
+                                "Día $": daily_gain,
+                                "Día %": daily_gain_pct,
+                                "is_crypto": is_crypto
+                            })
                 
                 if portfolio_details:
-                    # Métricas generales con colores
+                    # Métricas generales
                     total_gain = total_current - total_invested
                     total_gain_pct = (total_gain / total_invested) * 100 if total_invested > 0 else 0
                     total_daily_gain = total_current - total_prev_value
                     total_daily_pct = (total_daily_gain / total_prev_value) * 100 if total_prev_value > 0 else 0
+                    
+                    # Métricas de acciones
+                    stocks_gain = stocks_current - stocks_invested
+                    stocks_gain_pct = (stocks_gain / stocks_invested) * 100 if stocks_invested > 0 else 0
+                    stocks_daily_gain = stocks_current - stocks_prev_value
+                    stocks_daily_pct = (stocks_daily_gain / stocks_prev_value) * 100 if stocks_prev_value > 0 else 0
+                    
+                    # Métricas de criptos
+                    crypto_gain = crypto_current - crypto_invested
+                    crypto_gain_pct = (crypto_gain / crypto_invested) * 100 if crypto_invested > 0 else 0
+                    crypto_daily_gain = crypto_current - crypto_prev_value
+                    crypto_daily_pct = (crypto_daily_gain / crypto_prev_value) * 100 if crypto_prev_value > 0 else 0
                     
                     # Guardar snapshot diario
                     save_daily_snapshot(
@@ -2364,10 +2408,51 @@ def main():
                     
                     # Convertir a EUR si es necesario
                     conv_rate = eur_usd_rate if st.session_state.currency == "EUR" else 1
-                    disp_invested = total_invested / conv_rate
-                    disp_current = total_current / conv_rate
-                    disp_gain = total_gain / conv_rate
-                    disp_daily = total_daily_gain / conv_rate
+                    
+                    # Construir opciones disponibles según el portfolio
+                    portfolio_view_options = []
+                    if stocks_invested > 0:
+                        portfolio_view_options.append("📈 Acciones")
+                    if crypto_invested > 0:
+                        portfolio_view_options.append("🪙 Crypto")
+                    if stocks_invested > 0 and crypto_invested > 0:
+                        portfolio_view_options.append("💼 Total")
+                    
+                    # Si solo hay un tipo, mostrar directamente sin selector
+                    if len(portfolio_view_options) == 1:
+                        selected_view = portfolio_view_options[0]
+                    else:
+                        # Selector de vista
+                        selected_view = st.radio(
+                            "Ver:",
+                            portfolio_view_options,
+                            horizontal=True,
+                            key="portfolio_view_selector",
+                            label_visibility="collapsed"
+                        )
+                    
+                    # Mostrar métricas según la selección
+                    if selected_view == "📈 Acciones":
+                        disp_invested = stocks_invested / conv_rate
+                        disp_current = stocks_current / conv_rate
+                        disp_gain = stocks_gain / conv_rate
+                        disp_daily = stocks_daily_gain / conv_rate
+                        gain_pct = stocks_gain_pct
+                        daily_pct = stocks_daily_pct
+                    elif selected_view == "🪙 Crypto":
+                        disp_invested = crypto_invested / conv_rate
+                        disp_current = crypto_current / conv_rate
+                        disp_gain = crypto_gain / conv_rate
+                        disp_daily = crypto_daily_gain / conv_rate
+                        gain_pct = crypto_gain_pct
+                        daily_pct = crypto_daily_pct
+                    else:  # Total
+                        disp_invested = total_invested / conv_rate
+                        disp_current = total_current / conv_rate
+                        disp_gain = total_gain / conv_rate
+                        disp_daily = total_daily_gain / conv_rate
+                        gain_pct = total_gain_pct
+                        daily_pct = total_daily_pct
                     
                     m1, m2, m3, m4 = st.columns(4)
                     with m1:
@@ -2375,9 +2460,9 @@ def main():
                     with m2:
                         st.metric("Valor Actual", f"{curr_symbol}{disp_current:,.2f}")
                     with m3:
-                        st.metric("Ganancia Total", f"{curr_symbol}{disp_gain:+,.2f}", f"{total_gain_pct:+.2f}%")
+                        st.metric("Ganancia Total", f"{curr_symbol}{disp_gain:+,.2f}", f"{gain_pct:+.2f}%")
                     with m4:
-                        st.metric("Hoy", f"{curr_symbol}{disp_daily:+,.2f}", f"{total_daily_pct:+.2f}%")
+                        st.metric("Hoy", f"{curr_symbol}{disp_daily:+,.2f}", f"{daily_pct:+.2f}%")
                     
                     st.markdown("---")
                     
